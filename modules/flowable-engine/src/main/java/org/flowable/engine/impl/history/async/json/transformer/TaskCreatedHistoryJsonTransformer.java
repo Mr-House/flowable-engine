@@ -12,11 +12,18 @@
  */
 package org.flowable.engine.impl.history.async.json.transformer;
 
+import static org.flowable.job.service.impl.history.async.util.AsyncHistoryJsonUtil.getDateFromJson;
+import static org.flowable.job.service.impl.history.async.util.AsyncHistoryJsonUtil.getIntegerFromJson;
+import static org.flowable.job.service.impl.history.async.util.AsyncHistoryJsonUtil.getStringFromJson;
+
+import java.util.Collections;
+import java.util.List;
+
 import org.apache.commons.lang3.StringUtils;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
+import org.flowable.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.flowable.engine.impl.history.async.HistoryJsonConstants;
 import org.flowable.engine.impl.persistence.entity.HistoricActivityInstanceEntity;
-import org.flowable.engine.impl.util.CommandContextUtil;
 import org.flowable.job.service.impl.persistence.entity.HistoryJobEntity;
 import org.flowable.task.service.HistoricTaskService;
 import org.flowable.task.service.impl.persistence.entity.HistoricTaskInstanceEntity;
@@ -25,30 +32,23 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class TaskCreatedHistoryJsonTransformer extends AbstractHistoryJsonTransformer {
 
-    @Override
-    public String getType() {
-        return HistoryJsonConstants.TYPE_TASK_CREATED;
+    public TaskCreatedHistoryJsonTransformer(ProcessEngineConfigurationImpl processEngineConfiguration) {
+        super(processEngineConfiguration);
     }
     
     @Override
+    public List<String> getTypes() {
+        return Collections.singletonList(HistoryJsonConstants.TYPE_TASK_CREATED);
+    }
+
+    @Override
     public boolean isApplicable(ObjectNode historicalData, CommandContext commandContext) {
-        String executionId = getStringFromJson(historicalData, HistoryJsonConstants.EXECUTION_ID);
-        if (StringUtils.isNotEmpty(executionId)) {
-            String activityId = getStringFromJson(historicalData, HistoryJsonConstants.ACTIVITY_ID);
-            if (StringUtils.isNotEmpty(activityId)) {
-                HistoricActivityInstanceEntity historicActivityInstanceEntity = findHistoricActivityInstance(commandContext, executionId, activityId);
-                if (historicActivityInstanceEntity == null) {
-                    return false;
-                }
-            }
-        }
-        
         return true;
     }
 
     @Override
     public void transformJson(HistoryJobEntity job, ObjectNode historicalData, CommandContext commandContext) {
-        HistoricTaskService historicTaskService = CommandContextUtil.getHistoricTaskService();
+        HistoricTaskService historicTaskService = processEngineConfiguration.getTaskServiceConfiguration().getHistoricTaskService();
 
         String taskId = getStringFromJson(historicalData, HistoryJsonConstants.ID);
         String executionId = getStringFromJson(historicalData, HistoryJsonConstants.EXECUTION_ID);
@@ -66,17 +66,26 @@ public class TaskCreatedHistoryJsonTransformer extends AbstractHistoryJsonTransf
             historicTaskInstance.setDescription(getStringFromJson(historicalData, HistoryJsonConstants.DESCRIPTION));
             historicTaskInstance.setOwner(getStringFromJson(historicalData, HistoryJsonConstants.OWNER));
             historicTaskInstance.setAssignee(getStringFromJson(historicalData, HistoryJsonConstants.ASSIGNEE));
-            historicTaskInstance.setStartTime(getDateFromJson(historicalData, HistoryJsonConstants.START_TIME));
+            if (historicalData.has(HistoryJsonConstants.CREATE_TIME)) {
+                historicTaskInstance.setCreateTime(getDateFromJson(historicalData, HistoryJsonConstants.CREATE_TIME));
+            } else {
+                // For backwards compatibility. New async data uses the CREATE_TIME. This should be removed eventually
+                historicTaskInstance.setCreateTime(getDateFromJson(historicalData, HistoryJsonConstants.START_TIME));
+            }
             historicTaskInstance.setTaskDefinitionKey(getStringFromJson(historicalData, HistoryJsonConstants.TASK_DEFINITION_KEY));
+            historicTaskInstance.setTaskDefinitionId(getStringFromJson(historicalData, HistoryJsonConstants.TASK_DEFINITION_ID));
+            historicTaskInstance.setFormKey(getStringFromJson(historicalData, HistoryJsonConstants.FORM_KEY));
             historicTaskInstance.setPriority(getIntegerFromJson(historicalData, HistoryJsonConstants.PRIORITY));
             historicTaskInstance.setDueDate(getDateFromJson(historicalData, HistoryJsonConstants.DUE_DATE));
             historicTaskInstance.setCategory(getStringFromJson(historicalData, HistoryJsonConstants.CATEGORY));
+            historicTaskInstance.setClaimTime(getDateFromJson(historicalData, HistoryJsonConstants.CLAIM_TIME));
             historicTaskInstance.setTenantId(getStringFromJson(historicalData, HistoryJsonConstants.TENANT_ID));
             historicTaskInstance.setLastUpdateTime(getDateFromJson(historicalData, HistoryJsonConstants.TIMESTAMP));
     
             historicTaskService.insertHistoricTask(historicTaskInstance, true);
         }
 
+        // there can be still job in the queue which can have activityId in and we should be able to handle it
         if (StringUtils.isNotEmpty(executionId)) {
             String activityId = getStringFromJson(historicalData, HistoryJsonConstants.ACTIVITY_ID);
             if (StringUtils.isNotEmpty(activityId)) {

@@ -12,11 +12,6 @@
  */
 package org.flowable.editor.language.json.converter;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -27,6 +22,7 @@ import org.flowable.bpmn.model.BooleanDataObject;
 import org.flowable.bpmn.model.BpmnModel;
 import org.flowable.bpmn.model.DateDataObject;
 import org.flowable.bpmn.model.DoubleDataObject;
+import org.flowable.bpmn.model.Escalation;
 import org.flowable.bpmn.model.EventListener;
 import org.flowable.bpmn.model.FieldExtension;
 import org.flowable.bpmn.model.FlowElement;
@@ -50,6 +46,11 @@ import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
  * @author Tijs Rademakers
@@ -273,6 +274,20 @@ public class BpmnJsonConverterUtil implements EditorJsonConstants, StencilConsta
             propertiesNode.set(PROPERTY_MESSAGE_DEFINITIONS, messageDefinitions);
         }
     }
+    
+    public static void convertEscalationDefinitionsToJson(BpmnModel bpmnModel, ObjectNode propertiesNode) {
+        if (bpmnModel.getEscalations() != null) {
+            ArrayNode escalationDefinitions = objectMapper.createArrayNode();
+            for (Escalation escalation : bpmnModel.getEscalations()) {
+                ObjectNode escalationNode = escalationDefinitions.addObject();
+                escalationNode.put(PROPERTY_ESCALATION_DEFINITION_ID, escalation.getEscalationCode());
+                if (StringUtils.isNotEmpty(escalation.getName())) {
+                    escalationNode.put(PROPERTY_ESCALATION_DEFINITION_NAME, escalation.getName());
+                }
+            }
+            propertiesNode.set(PROPERTY_ESCALATION_DEFINITIONS, escalationDefinitions);
+        }
+    }
 
     public static void convertJsonToListeners(JsonNode objectNode, BaseElement element) {
         JsonNode executionListenersNode = getProperty(PROPERTY_EXECUTION_LISTENERS, objectNode);
@@ -301,8 +316,10 @@ public class BpmnJsonConverterUtil implements EditorJsonConstants, StencilConsta
     }
 
     protected static void parseListeners(JsonNode listenersNode, BaseElement element, boolean isTaskListener) {
-        if (listenersNode == null)
+        if (listenersNode == null) {
             return;
+        }
+
         listenersNode = validateIfNodeIsTextual(listenersNode);
         for (JsonNode listenerNode : listenersNode) {
             listenerNode = validateIfNodeIsTextual(listenerNode);
@@ -525,17 +542,17 @@ public class BpmnJsonConverterUtil implements EditorJsonConstants, StencilConsta
                         ItemDefinition itemSubjectRef = new ItemDefinition();
                         String dataType = dataNode.get(PROPERTY_DATA_TYPE).asText();
 
-                        if (dataType.equals("string")) {
+                        if ("string".equals(dataType)) {
                             dataObject = new StringDataObject();
-                        } else if (dataType.equals("int")) {
+                        } else if ("int".equals(dataType)) {
                             dataObject = new IntegerDataObject();
-                        } else if (dataType.equals("long")) {
+                        } else if ("long".equals(dataType)) {
                             dataObject = new LongDataObject();
-                        } else if (dataType.equals("double")) {
+                        } else if ("double".equals(dataType)) {
                             dataObject = new DoubleDataObject();
-                        } else if (dataType.equals("boolean")) {
+                        } else if ("boolean".equals(dataType)) {
                             dataObject = new BooleanDataObject();
-                        } else if (dataType.equals("datetime")) {
+                        } else if ("datetime".equals(dataType)) {
                             dataObject = new DateDataObject();
                         } else {
                             LOGGER.error("Error converting {}", dataIdNode.asText());

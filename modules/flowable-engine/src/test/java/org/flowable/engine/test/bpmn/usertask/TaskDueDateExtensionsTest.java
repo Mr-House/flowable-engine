@@ -13,18 +13,21 @@
 
 package org.flowable.engine.test.bpmn.usertask;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.flowable.engine.common.impl.calendar.BusinessCalendar;
-import org.flowable.engine.common.runtime.Clock;
+import org.flowable.common.engine.impl.calendar.BusinessCalendar;
+import org.flowable.common.engine.impl.runtime.Clock;
 import org.flowable.engine.impl.test.ResourceFlowableTestCase;
 import org.flowable.engine.runtime.ProcessInstance;
 import org.flowable.engine.test.Deployment;
 import org.joda.time.Period;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author Frederik Heremans
@@ -35,6 +38,7 @@ public class TaskDueDateExtensionsTest extends ResourceFlowableTestCase {
         super("org/flowable/engine/test/bpmn/usertask/TaskDueDateExtensionsTest.flowable.cfg.xml");
     }
 
+    @Test
     @Deployment
     public void testDueDateExtension() throws Exception {
 
@@ -47,10 +51,10 @@ public class TaskDueDateExtensionsTest extends ResourceFlowableTestCase {
 
         org.flowable.task.api.Task task = taskService.createTaskQuery().processInstanceId(processInstance.getId()).singleResult();
 
-        assertNotNull(task.getDueDate());
-        assertEquals(date, task.getDueDate());
+        assertThat(task.getDueDate()).isEqualTo(date);
     }
 
+    @Test
     @Deployment
     public void testDueDateStringExtension() throws Exception {
 
@@ -62,11 +66,12 @@ public class TaskDueDateExtensionsTest extends ResourceFlowableTestCase {
 
         org.flowable.task.api.Task task = taskService.createTaskQuery().processInstanceId(processInstance.getId()).singleResult();
 
-        assertNotNull(task.getDueDate());
+        assertThat(task.getDueDate()).isNotNull();
         Date date = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").parse("06-07-1986 12:10:00");
-        assertEquals(date, task.getDueDate());
+        assertThat(task.getDueDate()).isEqualTo(date);
     }
 
+    @Test
     @Deployment
     public void testRelativeDueDateStringExtension() throws Exception {
         Clock clock = processEngineConfiguration.getClock();
@@ -80,14 +85,15 @@ public class TaskDueDateExtensionsTest extends ResourceFlowableTestCase {
 
         org.flowable.task.api.Task task = taskService.createTaskQuery().processInstanceId(processInstance.getId()).singleResult();
 
-        assertNotNull(task.getDueDate());
+        assertThat(task.getDueDate()).isNotNull();
         Period period = new Period(task.getCreateTime().getTime(), task.getDueDate().getTime());
-        assertEquals(2, period.getDays());
-        assertEquals(5, period.getHours());
-        assertEquals(40, period.getMinutes());
+        assertThat(period.getDays()).isEqualTo(2);
+        assertThat(period.getHours()).isEqualTo(5);
+        assertThat(period.getMinutes()).isEqualTo(40);
         clock.reset();
     }
 
+    @Test
     @Deployment
     public void testRelativeDueDateStringWithCalendarNameExtension() throws Exception {
 
@@ -99,8 +105,7 @@ public class TaskDueDateExtensionsTest extends ResourceFlowableTestCase {
 
         org.flowable.task.api.Task task = taskService.createTaskQuery().processInstanceId(processInstance.getId()).singleResult();
 
-        assertNotNull(task.getDueDate());
-        assertEquals(new Date(0), task.getDueDate());
+        assertThat(task.getDueDate()).isEqualTo(new Date(0));
     }
 
     public static class CustomBusinessCalendar implements BusinessCalendar {

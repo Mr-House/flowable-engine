@@ -19,7 +19,7 @@ import org.flowable.cmmn.engine.impl.persistence.entity.SentryPartInstanceEntity
 import org.flowable.cmmn.engine.impl.persistence.entity.SentryPartInstanceEntityImpl;
 import org.flowable.cmmn.engine.impl.persistence.entity.data.AbstractCmmnDataManager;
 import org.flowable.cmmn.engine.impl.persistence.entity.data.SentryPartInstanceDataManager;
-import org.flowable.engine.common.impl.db.CachedEntityMatcherAdapter;
+import org.flowable.common.engine.impl.persistence.cache.CachedEntityMatcherAdapter;
 
 /**
  * @author Joram Barrez
@@ -45,10 +45,15 @@ public class MybatisSentryPartInstanceDataManagerImpl extends AbstractCmmnDataMa
     public SentryPartInstanceEntity create() {
         return new SentryPartInstanceEntityImpl();
     }
-    
+
+    @Override
+    public List<SentryPartInstanceEntity> findSentryPartInstancesByCaseInstanceId(String caseInstanceId) {
+        return getList("selectSentryPartInstanceByCaseInstanceId", caseInstanceId, sentryPartByCaseInstanceIdEntityMatched);
+    }
+
     @Override
     public List<SentryPartInstanceEntity> findSentryPartInstancesByCaseInstanceIdAndNullPlanItemInstanceId(String caseInstanceId) {
-        return getList("selectSentryPartInstanceByCaseInstanceId", caseInstanceId);
+        return getList("selectSentryPartInstanceByCaseInstanceIdAndNullPlanItemInstanceId", caseInstanceId);
     }
 
     @Override
@@ -58,7 +63,7 @@ public class MybatisSentryPartInstanceDataManagerImpl extends AbstractCmmnDataMa
 
     @Override
     public void deleteByCaseInstanceId(String caseInstanceId) {
-        bulkDelete("deleteSentryPartInstancesByCaseInstanceId", caseInstanceId, getManagedEntityClass(), sentryPartByCaseInstanceIdEntityMatched);
+        bulkDelete("deleteSentryPartInstancesByCaseInstanceId", sentryPartByCaseInstanceIdEntityMatched, caseInstanceId);
     }
     
     
@@ -67,7 +72,7 @@ public class MybatisSentryPartInstanceDataManagerImpl extends AbstractCmmnDataMa
         @Override
         public boolean isRetained(SentryPartInstanceEntity sentryPartInstanceEntity, Object param) {
             return sentryPartInstanceEntity.getPlanItemInstanceId() == null
-                    && sentryPartInstanceEntity.getCaseInstanceId().equals((String) param);
+                    && sentryPartInstanceEntity.getCaseInstanceId().equals(param);
         }
         
     }
@@ -77,9 +82,9 @@ public class MybatisSentryPartInstanceDataManagerImpl extends AbstractCmmnDataMa
         @Override
         public boolean isRetained(SentryPartInstanceEntity sentryPartInstanceEntity, Object param) {
             return sentryPartInstanceEntity.getPlanItemInstanceId() != null
-                    && sentryPartInstanceEntity.getPlanItemInstanceId().equals((String) param);
+                    && sentryPartInstanceEntity.getPlanItemInstanceId().equals(param);
         }
         
     }
-    
+
 }

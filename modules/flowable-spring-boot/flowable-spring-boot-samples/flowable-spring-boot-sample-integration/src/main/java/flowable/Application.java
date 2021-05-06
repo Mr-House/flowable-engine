@@ -1,7 +1,18 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package flowable;
 
 import java.util.Collections;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.flowable.engine.ProcessEngine;
@@ -15,10 +26,11 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.integration.dsl.IntegrationFlow;
 import org.springframework.integration.dsl.IntegrationFlows;
-import org.springframework.integration.dsl.support.GenericHandler;
+import org.springframework.integration.handler.GenericHandler;
+import org.springframework.messaging.MessageHeaders;
 import org.springframework.messaging.support.MessageBuilder;
 
-@SpringBootApplication
+@SpringBootApplication(proxyBeanMethods = false)
 public class Application {
 
     public static void main(String[] args) {
@@ -32,7 +44,7 @@ public class Application {
 
     @Bean
     FlowableInboundGateway inboundGateway(ProcessEngine processEngine) {
-        return new FlowableInboundGateway(processEngine, "customerId", "projectId");
+        return new FlowableInboundGateway(processEngine, "customerId", "projectId", "orderId");
     }
 
     @Bean
@@ -59,9 +71,10 @@ public class Application {
                 .from(inboundGateway)
                 .handle(new GenericHandler<DelegateExecution>() {
                     @Override
-                    public Object handle(DelegateExecution execution, Map<String, Object> headers) {
+                    public Object handle(DelegateExecution execution, MessageHeaders headers) {
                         return MessageBuilder.withPayload(execution)
-                                .setHeader("projectId", "3243549")
+                                .setHeader("projectId", "2143243")
+                                .setHeader("orderId", "246")
                                 .copyHeaders(headers).build();
                     }
                 })

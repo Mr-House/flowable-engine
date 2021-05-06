@@ -14,11 +14,11 @@ package org.flowable.engine.impl.cmd;
 
 import java.io.Serializable;
 
-import org.flowable.engine.common.api.FlowableException;
-import org.flowable.engine.common.api.FlowableIllegalArgumentException;
-import org.flowable.engine.common.api.FlowableObjectNotFoundException;
-import org.flowable.engine.common.impl.interceptor.Command;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
+import org.flowable.common.engine.api.FlowableException;
+import org.flowable.common.engine.api.FlowableIllegalArgumentException;
+import org.flowable.common.engine.api.FlowableObjectNotFoundException;
+import org.flowable.common.engine.impl.interceptor.Command;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
 import org.flowable.engine.compatibility.Flowable5CompatibilityHandler;
 import org.flowable.engine.impl.persistence.entity.ExecutionEntity;
 import org.flowable.engine.impl.util.CommandContextUtil;
@@ -73,7 +73,7 @@ public class SetProcessInstanceNameCmd implements Command<Void>, Serializable {
         execution.setName(name);
 
         // Record the change in history
-        CommandContextUtil.getHistoryManager(commandContext).recordProcessInstanceNameChange(processInstanceId, name);
+        CommandContextUtil.getHistoryManager(commandContext).recordProcessInstanceNameChange(execution, name);
 
         return null;
     }

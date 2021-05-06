@@ -45,10 +45,25 @@ public class MybatisFormInstanceDataManager extends AbstractFormDataManager<Form
     public long findFormInstanceCountByQueryCriteria(FormInstanceQueryImpl formInstanceQuery) {
         return (Long) getDbSqlSession().selectOne("selectFormInstancesCountByQueryCriteria", formInstanceQuery);
     }
+    
+    @Override
+    public void deleteFormInstancesByFormDefinitionId(String formDefinitionId) {
+        getDbSqlSession().delete("deleteFormInstancesByFormDefinitionId", formDefinitionId, getManagedEntityClass());
+    }
+    
+    @Override
+    public void deleteFormInstancesByProcessDefinitionId(String processDefinitionId) {
+        getDbSqlSession().delete("deleteFormInstancesByProcessDefinitionId", processDefinitionId, getManagedEntityClass());
+    }
+    
+    @Override
+    public void deleteFormInstancesByScopeDefinitionId(String scopeDefinitionId) {
+        getDbSqlSession().delete("deleteFormInstancesByScopeDefinitionId", scopeDefinitionId, getManagedEntityClass());
+    }
 
     @Override
     @SuppressWarnings("unchecked")
     public List<FormInstance> findFormInstancesByQueryCriteria(FormInstanceQueryImpl formInstanceQuery) {
-        return getDbSqlSession().selectList("selectFormInstancesByQueryCriteria", formInstanceQuery);
+        return getDbSqlSession().selectList("selectFormInstancesByQueryCriteria", formInstanceQuery, getManagedEntityClass());
     }
 }

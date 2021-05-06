@@ -15,8 +15,8 @@ package org.flowable.form.api;
 
 import java.util.Set;
 
-import org.flowable.engine.common.api.FlowableIllegalArgumentException;
-import org.flowable.engine.common.api.query.Query;
+import org.flowable.common.engine.api.FlowableIllegalArgumentException;
+import org.flowable.common.engine.api.query.Query;
 
 /**
  * Allows programmatic querying of {@link FormDefinition}s.
@@ -66,16 +66,6 @@ public interface FormDefinitionQuery extends Query<FormDefinitionQuery, FormDefi
     FormDefinitionQuery deploymentIds(Set<String> deploymentIds);
 
     /**
-     * Only select forms that have the given parent deployment id
-     */
-    FormDefinitionQuery parentDeploymentId(String parentDeploymentId);
-
-    /**
-     * Only select forms that have a parent deployment id like the given parameter
-     */
-    FormDefinitionQuery parentDeploymentIdLike(String parentDeploymentIdLike);
-
-    /**
      * Only select form with the given key.
      */
     FormDefinitionQuery formDefinitionKey(String formDefinitionKey);
@@ -116,7 +106,7 @@ public interface FormDefinitionQuery extends Query<FormDefinitionQuery, FormDefi
      * Can also be used without any other criteria (ie. query.latest().list()), which will then give all the latest versions of all the deployed decision tables.
      * 
      * @throws FlowableIllegalArgumentException
-     *             if used in combination with {@link #groupId(string)}, {@link #formVersion(int)} or {@link #deploymentId(String)}
+     *             if used in combination with {@link #formVersion(Integer)} or {@link #deploymentId(String)}
      */
     FormDefinitionQuery latestVersion();
 

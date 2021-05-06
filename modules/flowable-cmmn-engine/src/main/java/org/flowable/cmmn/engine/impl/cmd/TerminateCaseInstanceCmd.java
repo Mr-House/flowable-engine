@@ -14,7 +14,7 @@ package org.flowable.cmmn.engine.impl.cmd;
 
 import org.flowable.cmmn.engine.impl.persistence.entity.CaseInstanceEntity;
 import org.flowable.cmmn.engine.impl.util.CommandContextUtil;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
 
 /**
  * @author Joram Barrez
@@ -27,7 +27,7 @@ public class TerminateCaseInstanceCmd extends AbstractNeedsCaseInstanceCmd {
     
     @Override
     protected void internalExecute(CommandContext commandContext, CaseInstanceEntity caseInstanceEntity) {
-        CommandContextUtil.getAgenda(commandContext).planTerminateCaseInstanceOperation(caseInstanceEntity.getId(), true);
+        CommandContextUtil.getAgenda(commandContext).planManualTerminateCaseInstanceOperation(caseInstanceEntity.getId());
     }
 
 }

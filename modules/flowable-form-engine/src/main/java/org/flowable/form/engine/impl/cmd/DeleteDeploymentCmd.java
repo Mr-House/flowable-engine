@@ -14,9 +14,9 @@ package org.flowable.form.engine.impl.cmd;
 
 import java.io.Serializable;
 
-import org.flowable.engine.common.api.FlowableIllegalArgumentException;
-import org.flowable.engine.common.impl.interceptor.Command;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
+import org.flowable.common.engine.api.FlowableIllegalArgumentException;
+import org.flowable.common.engine.impl.interceptor.Command;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
 import org.flowable.form.engine.impl.util.CommandContextUtil;
 
 /**
@@ -26,9 +26,11 @@ public class DeleteDeploymentCmd implements Command<Void>, Serializable {
 
     private static final long serialVersionUID = 1L;
     protected String deploymentId;
+    protected boolean cascade;
 
-    public DeleteDeploymentCmd(String deploymentId) {
+    public DeleteDeploymentCmd(String deploymentId, boolean cascade) {
         this.deploymentId = deploymentId;
+        this.cascade = cascade;
     }
 
     @Override
@@ -38,7 +40,7 @@ public class DeleteDeploymentCmd implements Command<Void>, Serializable {
         }
 
         // Remove forms from cache:
-        CommandContextUtil.getFormEngineConfiguration().getDeploymentManager().removeDeployment(deploymentId);
+        CommandContextUtil.getFormEngineConfiguration().getDeploymentManager().removeDeployment(deploymentId, cascade);
 
         return null;
     }

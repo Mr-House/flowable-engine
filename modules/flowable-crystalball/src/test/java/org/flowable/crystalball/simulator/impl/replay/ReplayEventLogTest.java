@@ -1,8 +1,18 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.flowable.crystalball.simulator.impl.replay;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -33,7 +43,7 @@ import org.flowable.engine.runtime.ProcessInstance;
 import org.flowable.task.api.Task;
 import org.flowable.variable.api.history.HistoricVariableInstance;
 import org.flowable.variable.service.impl.el.NoExecutionVariableScope;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author martin.grofcik
@@ -92,8 +102,8 @@ public class ReplayEventLogTest {
         simRun.init(new NoExecutionVariableScope());
 
         // original process is finished - there should not be any running process instance/task
-        assertEquals(0, runtimeService.createProcessInstanceQuery().processDefinitionKey(USERTASK_PROCESS).count());
-        assertEquals(0, taskService.createTaskQuery().taskDefinitionKey("userTask").count());
+        assertThat(runtimeService.createProcessInstanceQuery().processDefinitionKey(USERTASK_PROCESS).count()).isZero();
+        assertThat(taskService.createTaskQuery().taskDefinitionKey("userTask").count()).isZero();
 
         simRun.step();
 
@@ -101,23 +111,23 @@ public class ReplayEventLogTest {
         ProcessInstance replayProcessInstance = runtimeService.createProcessInstanceQuery()
                 .processDefinitionKey(USERTASK_PROCESS)
                 .singleResult();
-        assertNotNull(replayProcessInstance);
-        assertFalse(replayProcessInstance.getId().equals(processInstance.getId()));
-        assertEquals(TEST_VALUE, runtimeService.getVariable(replayProcessInstance.getId(), TEST_VARIABLE));
+        assertThat(replayProcessInstance).isNotNull();
+        assertThat(processInstance.getId()).isNotEqualTo(replayProcessInstance.getId());
+        assertThat(runtimeService.getVariable(replayProcessInstance.getId(), TEST_VARIABLE)).isEqualTo(TEST_VALUE);
         // there should be one task
-        assertEquals(1, taskService.createTaskQuery().taskDefinitionKey("userTask").count());
+        assertThat(taskService.createTaskQuery().taskDefinitionKey("userTask").count()).isEqualTo(1);
 
         simRun.step();
 
         // userTask was completed - replay process was finished
-        assertEquals(0, runtimeService.createProcessInstanceQuery().processDefinitionKey(USERTASK_PROCESS).count());
-        assertEquals(0, taskService.createTaskQuery().taskDefinitionKey("userTask").count());
+        assertThat(runtimeService.createProcessInstanceQuery().processDefinitionKey(USERTASK_PROCESS).count()).isZero();
+        assertThat(taskService.createTaskQuery().taskDefinitionKey("userTask").count()).isZero();
         HistoricVariableInstance variableInstance = historyService.createHistoricVariableInstanceQuery()
                 .processInstanceId(replayProcessInstance.getId())
                 .variableName(TASK_TEST_VARIABLE)
                 .singleResult();
-        assertNotNull(variableInstance);
-        assertEquals(TASK_TEST_VALUE, variableInstance.getValue());
+        assertThat(variableInstance).isNotNull();
+        assertThat(variableInstance.getValue()).isEqualTo(TASK_TEST_VALUE);
 
         // close simulation
         simRun.close();

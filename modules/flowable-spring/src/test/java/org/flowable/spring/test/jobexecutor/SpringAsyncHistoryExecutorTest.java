@@ -12,8 +12,11 @@
  */
 package org.flowable.spring.test.jobexecutor;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import java.util.List;
 
+import org.flowable.common.engine.impl.test.CleanTest;
 import org.flowable.engine.HistoryService;
 import org.flowable.engine.ManagementService;
 import org.flowable.engine.ProcessEngineConfiguration;
@@ -21,19 +24,17 @@ import org.flowable.engine.RuntimeService;
 import org.flowable.engine.TaskService;
 import org.flowable.engine.impl.test.HistoryTestHelper;
 import org.flowable.engine.runtime.ProcessInstance;
-import org.flowable.spring.impl.test.CleanTestExecutionListener;
 import org.flowable.spring.impl.test.SpringFlowableTestCase;
 import org.flowable.task.api.Task;
 import org.flowable.task.api.history.HistoricTaskInstance;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.TestExecutionListeners;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-@RunWith(SpringJUnit4ClassRunner.class)
-@TestExecutionListeners(CleanTestExecutionListener.class)
+@CleanTest
+// We need to use per class as the test uses auto deployments. If they are deleted then the other tests will fail
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ContextConfiguration("classpath:org/flowable/spring/test/components/SpringAsyncHistoryJobExecutorTest-context.xml")
 public class SpringAsyncHistoryExecutorTest extends SpringFlowableTestCase {
 
@@ -45,7 +46,7 @@ public class SpringAsyncHistoryExecutorTest extends SpringFlowableTestCase {
 
     @Autowired
     protected TaskService taskService;
-    
+
     @Autowired
     protected HistoryService historyService;
 
@@ -60,18 +61,15 @@ public class SpringAsyncHistoryExecutorTest extends SpringFlowableTestCase {
             taskService.complete(tasks.get(0).getId());
             tasks = taskService.createTaskQuery().processInstanceId(processInstance.getId()).list();
         }
-        
-        assertTrue(managementService.createHistoryJobQuery().count() > 0);
-        HistoryTestHelper.waitForJobExecutorToProcessAllHistoryJobs(processEngineConfiguration, managementService, 10000L, 200L);
-        
+
+        HistoryTestHelper.waitForJobExecutorToProcessAllHistoryJobs(processEngineConfiguration, managementService, 20000L, 200L, false);
+
         List<HistoricTaskInstance> historicTasks = historyService.createHistoricTaskInstanceQuery()
                 .processInstanceId(processInstance.getId()).orderByTaskName().asc().list();
-        
-        String[] expectedTaskNames = new String[] { "Task a", "Task b1", "Task b2", "Task c" };
-        assertEquals(expectedTaskNames.length, historicTasks.size());
-        for (int i = 0; i < historicTasks.size(); i++) {
-            assertEquals(expectedTaskNames[i], historicTasks.get(i).getName());
-        }
+
+        assertThat(historicTasks)
+                .extracting(HistoricTaskInstance::getName)
+                .containsExactly("Task a", "Task b1", "Task b2", "Task c");
     }
-        
+
 }

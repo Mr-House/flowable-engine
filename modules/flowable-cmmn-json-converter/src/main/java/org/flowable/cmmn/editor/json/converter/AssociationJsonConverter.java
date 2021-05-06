@@ -1,9 +1,9 @@
 /* Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -19,6 +19,7 @@ import org.flowable.cmmn.editor.json.converter.CmmnJsonConverter.CmmnModelIdHelp
 import org.flowable.cmmn.model.Association;
 import org.flowable.cmmn.model.BaseElement;
 import org.flowable.cmmn.model.CmmnModel;
+import org.flowable.cmmn.model.Criterion;
 import org.flowable.cmmn.model.GraphicInfo;
 import org.flowable.cmmn.model.PlanItem;
 
@@ -56,8 +57,21 @@ public class AssociationJsonConverter extends BaseCmmnJsonConverter {
         ObjectNode flowNode = CmmnJsonConverterUtil.createChildShape(association.getId(), STENCIL_ASSOCIATION, 172, 212, 128, 212);
         ArrayNode dockersArrayNode = objectMapper.createArrayNode();
         ObjectNode dockNode = objectMapper.createObjectNode();
-        dockNode.put(EDITOR_BOUNDS_X, model.getGraphicInfo(association.getSourceRef()).getWidth() / 2.0);
-        dockNode.put(EDITOR_BOUNDS_Y, model.getGraphicInfo(association.getSourceRef()).getHeight() / 2.0);
+        
+        GraphicInfo sourceGraphicInfo = model.getGraphicInfo(association.getSourceRef());
+        if (sourceGraphicInfo == null) {
+            PlanItem sourcePlanItem = model.findPlanItemByPlanItemDefinitionId(association.getSourceRef());
+            if (sourcePlanItem != null) {
+                sourceGraphicInfo = model.getGraphicInfo(sourcePlanItem.getId());
+            }
+        }
+        
+        if (sourceGraphicInfo == null) {
+            return;
+        }
+        
+        dockNode.put(EDITOR_BOUNDS_X, sourceGraphicInfo.getWidth() / 2.0);
+        dockNode.put(EDITOR_BOUNDS_Y, sourceGraphicInfo.getHeight() / 2.0);
         dockersArrayNode.add(dockNode);
 
         List<GraphicInfo> graphicInfoList = model.getFlowLocationGraphicInfo(association.getId());
@@ -71,8 +85,22 @@ public class AssociationJsonConverter extends BaseCmmnJsonConverter {
             }
         }
 
+        String targetElementId = association.getTargetRef();
         PlanItem planItem = model.findPlanItem(association.getTargetRef());
-        GraphicInfo targetGraphicInfo = model.getGraphicInfo(planItem.getId());
+        if (planItem == null) {
+            Criterion criterion = model.getCriterion(association.getTargetRef());
+            if (criterion == null) {
+                PlanItem targetPlanItem = model.findPlanItemByPlanItemDefinitionId(association.getTargetRef());
+                if (targetPlanItem == null) {
+                    // Invalid reference, ignoring
+                    return;
+                } else {
+                    targetElementId = targetPlanItem.getId();
+                }
+            }
+        }
+        
+        GraphicInfo targetGraphicInfo = model.getGraphicInfo(targetElementId);
         GraphicInfo flowGraphicInfo = graphicInfoList.get(graphicInfoList.size() - 1);
 
         double diffTopY = Math.abs(flowGraphicInfo.getY() - targetGraphicInfo.getY());
@@ -99,12 +127,13 @@ public class AssociationJsonConverter extends BaseCmmnJsonConverter {
         dockersArrayNode.add(dockNode);
         flowNode.set("dockers", dockersArrayNode);
         ArrayNode outgoingArrayNode = objectMapper.createArrayNode();
-        outgoingArrayNode.add(CmmnJsonConverterUtil.createResourceNode(association.getTargetRef()));
+        outgoingArrayNode.add(CmmnJsonConverterUtil.createResourceNode(targetElementId));
         flowNode.set("outgoing", outgoingArrayNode);
-        flowNode.set("target", CmmnJsonConverterUtil.createResourceNode(association.getTargetRef()));
+        flowNode.set("target", CmmnJsonConverterUtil.createResourceNode(targetElementId));
 
         ObjectNode propertiesNode = objectMapper.createObjectNode();
         propertiesNode.put(PROPERTY_OVERRIDE_ID, association.getId());
+        propertiesNode.put(PROPERTY_TRANSITION_EVENT, association.getTransitionEvent());
 
         flowNode.set(EDITOR_SHAPE_PROPERTIES, propertiesNode);
 
@@ -112,14 +141,15 @@ public class AssociationJsonConverter extends BaseCmmnJsonConverter {
     }
 
     @Override
-    protected void convertElementToJson(ObjectNode elementNode, ObjectNode propertiesNode, ActivityProcessor processor, BaseElement baseElement, CmmnModel cmmnModel) {
+    protected void convertElementToJson(ObjectNode elementNode, ObjectNode propertiesNode, ActivityProcessor processor,
+        BaseElement baseElement, CmmnModel cmmnModel, CmmnJsonConverterContext converterContext) {
         // nothing to do
     }
 
     @Override
-    protected Association convertJsonToElement(JsonNode elementNode, JsonNode modelNode, ActivityProcessor processor, 
-                    BaseElement parentElement, Map<String, JsonNode> shapeMap, CmmnModel cmmnModel, CmmnModelIdHelper cmmnModelIdHelper) {
-        
+    protected Association convertJsonToElement(JsonNode elementNode, JsonNode modelNode, ActivityProcessor processor,
+                    BaseElement parentElement, Map<String, JsonNode> shapeMap, CmmnModel cmmnModel, CmmnJsonConverterContext converterContext, CmmnModelIdHelper cmmnModelIdHelper) {
+
         Association association = new Association();
 
         association.setId(CmmnJsonConverterUtil.getElementId(elementNode));

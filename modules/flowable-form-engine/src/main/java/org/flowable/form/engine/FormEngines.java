@@ -21,16 +21,14 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.flowable.engine.common.EngineInfo;
-import org.flowable.engine.common.api.FlowableException;
-import org.flowable.engine.common.impl.util.ReflectUtil;
+import org.flowable.common.engine.api.FlowableException;
+import org.flowable.common.engine.impl.EngineInfo;
+import org.flowable.common.engine.impl.util.ReflectUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,9 +68,8 @@ public abstract class FormEngines {
             while (resources.hasMoreElements()) {
                 configUrls.add(resources.nextElement());
             }
-            for (Iterator<URL> iterator = configUrls.iterator(); iterator.hasNext();) {
-                URL resource = iterator.next();
-                LOGGER.info("Initializing form engine using configuration '{}'", resource.toString());
+            for (URL resource : configUrls) {
+                LOGGER.info("Initializing form engine using configuration '{}'", resource);
                 initFormEngineFromResource(resource);
             }
 
@@ -84,7 +81,7 @@ public abstract class FormEngines {
 
             while (resources.hasMoreElements()) {
                 URL resource = resources.nextElement();
-                LOGGER.info("Initializing form engine using Spring configuration '{}'", resource.toString());
+                LOGGER.info("Initializing form engine using Spring configuration '{}'", resource);
                 initFormEngineFromSpringResource(resource);
             }
 
@@ -106,7 +103,7 @@ public abstract class FormEngines {
             formEngineInfosByResourceUrl.put(resource.toString(), formEngineInfo);
 
         } catch (Exception e) {
-            throw new FlowableException("couldn't initialize form engine from spring configuration resource " + resource.toString() + ": " + e.getMessage(), e);
+            throw new FlowableException("couldn't initialize form engine from spring configuration resource " + resource + ": " + e.getMessage(), e);
         }
     }
 
@@ -157,16 +154,12 @@ public abstract class FormEngines {
     }
 
     protected static FormEngine buildFormEngine(URL resource) {
-        InputStream inputStream = null;
-        try {
-            inputStream = resource.openStream();
+        try (InputStream inputStream = resource.openStream()) {
             FormEngineConfiguration formEngineConfiguration = FormEngineConfiguration.createFormEngineConfigurationFromInputStream(inputStream);
             return formEngineConfiguration.buildFormEngine();
 
         } catch (IOException e) {
             throw new FlowableException("couldn't open resource stream: " + e.getMessage(), e);
-        } finally {
-            IOUtils.closeQuietly(inputStream);
         }
     }
 

@@ -12,18 +12,19 @@
  */
 package org.flowable.editor.language.json.converter;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
 import org.apache.commons.lang3.StringUtils;
 import org.flowable.bpmn.model.BaseElement;
 import org.flowable.bpmn.model.CallActivity;
 import org.flowable.bpmn.model.FlowElement;
 import org.flowable.bpmn.model.IOParameter;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
  * @author Tijs Rademakers
@@ -50,10 +51,15 @@ public class CallActivityJsonConverter extends BaseBpmnJsonConverter {
     }
 
     @Override
-    protected void convertElementToJson(ObjectNode propertiesNode, BaseElement baseElement) {
+    protected void convertElementToJson(ObjectNode propertiesNode, BaseElement baseElement,
+        BpmnJsonConverterContext converterContext) {
         CallActivity callActivity = (CallActivity) baseElement;
         if (StringUtils.isNotEmpty(callActivity.getCalledElement())) {
             propertiesNode.put(PROPERTY_CALLACTIVITY_CALLEDELEMENT, callActivity.getCalledElement());
+        }
+
+        if (StringUtils.isNotEmpty(callActivity.getCalledElementType())) {
+            propertiesNode.put(PROPERTY_CALLACTIVITY_CALLEDELEMENTTYPE, callActivity.getCalledElementType());
         }
 
         if (callActivity.isInheritVariables()) {
@@ -63,13 +69,33 @@ public class CallActivityJsonConverter extends BaseBpmnJsonConverter {
         if (callActivity.isSameDeployment()) {
             propertiesNode.put(PROPERTY_CALLACTIVITY_SAME_DEPLOYMENT, callActivity.isSameDeployment());
         }
+        
+        if (StringUtils.isNotEmpty(callActivity.getProcessInstanceName())) {
+            propertiesNode.put(PROPERTY_CALLACTIVITY_PROCESS_INSTANCE_NAME, callActivity.getProcessInstanceName());
+        }
+        
+        if (StringUtils.isNotEmpty(callActivity.getBusinessKey())) {
+            propertiesNode.put(PROPERTY_CALLACTIVITY_BUSINESS_KEY, callActivity.getBusinessKey());
+        }
 
         if (callActivity.isInheritBusinessKey()) {
             propertiesNode.put(PROPERTY_CALLACTIVITY_INHERIT_BUSINESS_KEY, callActivity.isInheritBusinessKey());
         }
-
+        
         if (callActivity.isUseLocalScopeForOutParameters()) {
             propertiesNode.put(PROPERTY_CALLACTIVITY_USE_LOCALSCOPE_FOR_OUTPARAMETERS, callActivity.isUseLocalScopeForOutParameters());
+        }
+        
+        if (callActivity.isCompleteAsync()) {
+            propertiesNode.put(PROPERTY_CALLACTIVITY_COMPLETE_ASYNC, callActivity.isCompleteAsync());
+        }
+
+        if (callActivity.getFallbackToDefaultTenant() != null) {
+            propertiesNode.put(PROPERTY_CALLACTIVITY_FALLBACK_TO_DEFAULT_TENANT, callActivity.getFallbackToDefaultTenant());
+        }
+
+        if (callActivity.getProcessInstanceIdVariableName() != null) {
+            propertiesNode.put(PROPERTY_CALLACTIVITY_ID_VARIABLE_NAME, callActivity.getProcessInstanceIdVariableName());
         }
 
         addJsonParameters(PROPERTY_CALLACTIVITY_IN, "inParameters", callActivity.getInParameters(), propertiesNode);
@@ -105,10 +131,15 @@ public class CallActivityJsonConverter extends BaseBpmnJsonConverter {
     }
 
     @Override
-    protected FlowElement convertJsonToElement(JsonNode elementNode, JsonNode modelNode, Map<String, JsonNode> shapeMap) {
+    protected FlowElement convertJsonToElement(JsonNode elementNode, JsonNode modelNode, Map<String, JsonNode> shapeMap,
+        BpmnJsonConverterContext converterContext) {
         CallActivity callActivity = new CallActivity();
         if (StringUtils.isNotEmpty(getPropertyValueAsString(PROPERTY_CALLACTIVITY_CALLEDELEMENT, elementNode))) {
             callActivity.setCalledElement(getPropertyValueAsString(PROPERTY_CALLACTIVITY_CALLEDELEMENT, elementNode));
+        }
+
+        if (StringUtils.isNotEmpty(getPropertyValueAsString(PROPERTY_CALLACTIVITY_CALLEDELEMENTTYPE, elementNode))) {
+            callActivity.setCalledElementType(getPropertyValueAsString(PROPERTY_CALLACTIVITY_CALLEDELEMENTTYPE, elementNode));
         }
 
         if (getPropertyValueAsBoolean(PROPERTY_CALLACTIVITY_INHERIT_VARIABLES, elementNode)) {
@@ -118,13 +149,36 @@ public class CallActivityJsonConverter extends BaseBpmnJsonConverter {
         if (getPropertyValueAsBoolean(PROPERTY_CALLACTIVITY_SAME_DEPLOYMENT, elementNode)) {
             callActivity.setSameDeployment(true);
         }
-
+        
+        String processInstanceName = getPropertyValueAsString(PROPERTY_CALLACTIVITY_PROCESS_INSTANCE_NAME, elementNode);
+        if (StringUtils.isNotEmpty(processInstanceName)) {
+            callActivity.setProcessInstanceName(processInstanceName);
+        }
+        
+        String businessKey = getPropertyValueAsString(PROPERTY_CALLACTIVITY_BUSINESS_KEY, elementNode);
+        if (StringUtils.isNotEmpty(businessKey)) {
+            callActivity.setBusinessKey(businessKey);
+        }
+        
         if (getPropertyValueAsBoolean(PROPERTY_CALLACTIVITY_INHERIT_BUSINESS_KEY, elementNode)) {
             callActivity.setInheritBusinessKey(true);
         }
-
+        
         if (getPropertyValueAsBoolean(PROPERTY_CALLACTIVITY_USE_LOCALSCOPE_FOR_OUTPARAMETERS, elementNode)) {
             callActivity.setUseLocalScopeForOutParameters(true);
+        }
+        
+        if (getPropertyValueAsBoolean(PROPERTY_CALLACTIVITY_COMPLETE_ASYNC, elementNode)) {
+            callActivity.setCompleteAsync(true);
+        }
+
+        if (StringUtils.isNotEmpty(getPropertyValueAsString(PROPERTY_CALLACTIVITY_FALLBACK_TO_DEFAULT_TENANT, elementNode))) {
+            callActivity.setFallbackToDefaultTenant(getPropertyValueAsBoolean(PROPERTY_CALLACTIVITY_FALLBACK_TO_DEFAULT_TENANT, elementNode));
+        }
+
+        String idVariableName = getPropertyValueAsString(PROPERTY_CALLACTIVITY_ID_VARIABLE_NAME, elementNode);
+        if (StringUtils.isNotEmpty(idVariableName)) {
+            callActivity.setProcessInstanceIdVariableName(idVariableName);
         }
 
         callActivity.getInParameters().addAll(convertToIOParameters(PROPERTY_CALLACTIVITY_IN, "inParameters", elementNode));

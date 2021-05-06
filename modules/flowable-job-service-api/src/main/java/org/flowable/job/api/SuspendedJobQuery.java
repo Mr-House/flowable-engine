@@ -15,7 +15,7 @@ package org.flowable.job.api;
 
 import java.util.Date;
 
-import org.flowable.engine.common.api.query.Query;
+import org.flowable.common.engine.api.query.Query;
 
 /**
  * Allows programmatic querying of {@link Job}s.
@@ -40,6 +40,18 @@ public interface SuspendedJobQuery extends Query<SuspendedJobQuery, Job> {
     /** Only select jobs which exist for the given process definition id */
     SuspendedJobQuery processDefinitionId(String processDefinitionid);
     
+    /** Only select jobs which exist for the given category */
+    SuspendedJobQuery category(String category);
+    
+    /** Only select jobs like for the given category value */
+    SuspendedJobQuery categoryLike(String categoryLike);
+    
+    /** Only select jobs which exist for the given element id */
+    SuspendedJobQuery elementId(String elementId);
+    
+    /** Only select jobs which exist for the given element name */
+    SuspendedJobQuery elementName(String elementName);
+    
     /** Only select jobs for the given scope identifier. */
     SuspendedJobQuery scopeId(String scopeId);
 
@@ -48,6 +60,11 @@ public interface SuspendedJobQuery extends Query<SuspendedJobQuery, Job> {
     
     /** Only select jobs for the given scope type. */
     SuspendedJobQuery scopeType(String scopeType);
+
+    /**
+     * Only select jobs that do not have a scope type.
+     */
+    SuspendedJobQuery withoutScopeType();
     
     /** Only select jobs for the given scope definition identifier. */
     SuspendedJobQuery scopeDefinitionId(String scopeDefinitionId);
@@ -61,6 +78,9 @@ public interface SuspendedJobQuery extends Query<SuspendedJobQuery, Job> {
     /** Only select jobs for the given plan item instance.  */
     SuspendedJobQuery planItemInstanceId(String planItemInstanceId);
 
+    /** Only select jobs with the given correlationId.  */
+    SuspendedJobQuery correlationId(String correlationId);
+
     /** Only select jobs which have retries left */
     SuspendedJobQuery withRetriesLeft();
 
@@ -73,14 +93,19 @@ public interface SuspendedJobQuery extends Query<SuspendedJobQuery, Job> {
     SuspendedJobQuery executable();
 
     /**
-     * Only select jobs that are timers. Cannot be used together with {@link #messages()}
+     * Only select jobs that are timers. Cannot be used together with {@link #messages()} or {@link #externalWorkers()}
      */
     SuspendedJobQuery timers();
 
     /**
-     * Only select jobs that are messages. Cannot be used together with {@link #timers()}
+     * Only select jobs that are messages. Cannot be used together with {@link #timers()} or {@link #externalWorkers()}
      */
     SuspendedJobQuery messages();
+
+    /**
+     * Only select external worker jobs. Cannot be used together with {@link #timers()} or {@link #messages()}
+     */
+    SuspendedJobQuery externalWorkers();
 
     /** Only select jobs where the duedate is lower than the given date. */
     SuspendedJobQuery duedateLowerThan(Date date);
@@ -120,6 +145,11 @@ public interface SuspendedJobQuery extends Query<SuspendedJobQuery, Job> {
      * Order by duedate (needs to be followed by {@link #asc()} or {@link #desc()}).
      */
     SuspendedJobQuery orderByJobDuedate();
+
+    /**
+     * Order by create time (needs to be followed by {@link #asc()} or {@link #desc()}).
+     */
+    SuspendedJobQuery orderByJobCreateTime();
 
     /**
      * Order by retries (needs to be followed by {@link #asc()} or {@link #desc()}).

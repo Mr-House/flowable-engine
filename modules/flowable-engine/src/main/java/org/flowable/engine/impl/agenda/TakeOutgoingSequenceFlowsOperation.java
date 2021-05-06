@@ -27,18 +27,21 @@ import org.flowable.bpmn.model.InclusiveGateway;
 import org.flowable.bpmn.model.ParallelGateway;
 import org.flowable.bpmn.model.SequenceFlow;
 import org.flowable.bpmn.model.SubProcess;
-import org.flowable.engine.common.api.FlowableException;
-import org.flowable.engine.common.api.delegate.Expression;
-import org.flowable.engine.common.api.delegate.event.FlowableEngineEventType;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
-import org.flowable.engine.common.impl.util.CollectionUtil;
+import org.flowable.common.engine.api.FlowableException;
+import org.flowable.common.engine.api.delegate.Expression;
+import org.flowable.common.engine.api.delegate.event.FlowableEngineEventType;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
+import org.flowable.common.engine.impl.logging.LoggingSessionConstants;
+import org.flowable.common.engine.impl.util.CollectionUtil;
 import org.flowable.engine.delegate.ExecutionListener;
 import org.flowable.engine.delegate.event.impl.FlowableEventBuilder;
 import org.flowable.engine.impl.Condition;
 import org.flowable.engine.impl.bpmn.helper.SkipExpressionUtil;
+import org.flowable.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.flowable.engine.impl.el.UelExpressionCondition;
 import org.flowable.engine.impl.persistence.entity.ExecutionEntity;
 import org.flowable.engine.impl.persistence.entity.ExecutionEntityManager;
+import org.flowable.engine.impl.util.BpmnLoggingSessionUtil;
 import org.flowable.engine.impl.util.CommandContextUtil;
 import org.flowable.engine.impl.util.condition.ConditionUtil;
 import org.slf4j.Logger;
@@ -66,8 +69,7 @@ public class TakeOutgoingSequenceFlowsOperation extends AbstractOperation {
         FlowElement currentFlowElement = getCurrentFlowElement(execution);
 
         // Compensation check
-        if ((currentFlowElement instanceof Activity)
-                && (((Activity) currentFlowElement)).isForCompensation()) {
+        if ((currentFlowElement instanceof Activity) && ((Activity) currentFlowElement).isForCompensation()) {
 
             /*
              * If the current flow element is part of a compensation, we don't always want to follow the regular rules of leaving an activity. More specifically, if there are no outgoing sequenceflow,
@@ -114,14 +116,17 @@ public class TakeOutgoingSequenceFlowsOperation extends AbstractOperation {
                     && (!(flowNode instanceof Activity) || ((Activity) flowNode).getLoopCharacteristics() == null) // Multi instance root execution leaving the node isn't stored in history
                     ) {  
                 // If no sequence flow: will be handled by the deletion of executions
-                CommandContextUtil.getHistoryManager(commandContext).recordActivityEnd(execution, null);
+                CommandContextUtil.getActivityInstanceEntityManager(commandContext).recordActivityEnd(execution, null);
             }
 
             if (!(execution.getCurrentFlowElement() instanceof SubProcess) &&
-                !(flowNode instanceof Activity && ((Activity) flowNode).hasMultiInstanceLoopCharacteristics())) {
-                    CommandContextUtil.getEventDispatcher(commandContext).dispatchEvent(
-                            FlowableEventBuilder.createActivityEvent(FlowableEngineEventType.ACTIVITY_COMPLETED, flowNode.getId(), flowNode.getName(),
-                                    execution.getId(), execution.getProcessInstanceId(), execution.getProcessDefinitionId(), flowNode));
+                    !(flowNode instanceof Activity && ((Activity) flowNode).hasMultiInstanceLoopCharacteristics())) {
+                
+                ProcessEngineConfigurationImpl processEngineConfiguration = CommandContextUtil.getProcessEngineConfiguration(commandContext);
+                CommandContextUtil.getEventDispatcher(commandContext).dispatchEvent(
+                        FlowableEventBuilder.createActivityEvent(FlowableEngineEventType.ACTIVITY_COMPLETED, flowNode.getId(), flowNode.getName(),
+                                execution.getId(), execution.getProcessInstanceId(), execution.getProcessDefinitionId(), flowNode),
+                        processEngineConfiguration.getEngineCfgKey());
             }
         }
     }
@@ -144,14 +149,16 @@ public class TakeOutgoingSequenceFlowsOperation extends AbstractOperation {
         for (SequenceFlow sequenceFlow : flowNode.getOutgoingFlows()) {
 
             String skipExpressionString = sequenceFlow.getSkipExpression();
-            if (!SkipExpressionUtil.isSkipExpressionEnabled(execution, skipExpressionString)) {
+            if (!SkipExpressionUtil.isSkipExpressionEnabled(skipExpressionString, sequenceFlow.getId(), execution, commandContext)) {
 
                 if (!evaluateConditions
                         || (evaluateConditions && ConditionUtil.hasTrueCondition(sequenceFlow, execution) && (defaultSequenceFlowId == null || !defaultSequenceFlowId.equals(sequenceFlow.getId())))) {
                     outgoingSequenceFlows.add(sequenceFlow);
                 }
 
-            } else if (flowNode.getOutgoingFlows().size() == 1 || SkipExpressionUtil.shouldSkipFlowElement(commandContext, execution, skipExpressionString)) {
+            } else if (flowNode.getOutgoingFlows().size() == 1 || SkipExpressionUtil.shouldSkipFlowElement(
+                            skipExpressionString, sequenceFlow.getId(), execution, commandContext)) {
+                
                 // The 'skip' for a sequence flow means that we skip the condition, not the sequence flow.
                 outgoingSequenceFlows.add(sequenceFlow);
             }
@@ -182,8 +189,8 @@ public class TakeOutgoingSequenceFlowsOperation extends AbstractOperation {
         } else {
 
             // Leave, and reuse the incoming sequence flow, make executions for all the others (if applicable)
-
-            ExecutionEntityManager executionEntityManager = CommandContextUtil.getExecutionEntityManager(commandContext);
+            ProcessEngineConfigurationImpl processEngineConfiguration = CommandContextUtil.getProcessEngineConfiguration(commandContext);
+            ExecutionEntityManager executionEntityManager = processEngineConfiguration.getExecutionEntityManager();
             List<ExecutionEntity> outgoingExecutions = new ArrayList<>(flowNode.getOutgoingFlows().size());
 
             SequenceFlow sequenceFlow = outgoingSequenceFlows.get(0);
@@ -198,7 +205,7 @@ public class TakeOutgoingSequenceFlowsOperation extends AbstractOperation {
                 for (int i = 1; i < outgoingSequenceFlows.size(); i++) {
 
                     ExecutionEntity parent = execution.getParentId() != null ? execution.getParent() : execution;
-                    ExecutionEntity outgoingExecutionEntity = CommandContextUtil.getExecutionEntityManager(commandContext).createChildExecution(parent);
+                    ExecutionEntity outgoingExecutionEntity = processEngineConfiguration.getExecutionEntityManager().createChildExecution(parent);
 
                     SequenceFlow outgoingSequenceFlow = outgoingSequenceFlows.get(i);
                     outgoingExecutionEntity.setActive(false);
@@ -212,6 +219,9 @@ public class TakeOutgoingSequenceFlowsOperation extends AbstractOperation {
             // Leave (only done when all executions have been made, since some queries depend on this)
             for (ExecutionEntity outgoingExecution : outgoingExecutions) {
                 agenda.planContinueProcessOperation(outgoingExecution);
+                if (processEngineConfiguration.isLoggingSessionEnabled()) {
+                    BpmnLoggingSessionUtil.addSequenceFlowLoggingData(LoggingSessionConstants.TYPE_SEQUENCE_FLOW_TAKE, outgoingExecution);
+                }
             }
         }
     }
@@ -230,7 +240,7 @@ public class TakeOutgoingSequenceFlowsOperation extends AbstractOperation {
         if (flowNode.getOutgoingFlows().size() > 0) {
             leaveFlowNode(flowNode);
         } else {
-            CommandContextUtil.getExecutionEntityManager(commandContext).deleteExecutionAndRelatedData(execution, null);
+            CommandContextUtil.getExecutionEntityManager(commandContext).deleteExecutionAndRelatedData(execution, null, false);
         }
 
         if (completeAdhocSubProcess) {
@@ -252,14 +262,14 @@ public class TakeOutgoingSequenceFlowsOperation extends AbstractOperation {
     }
 
     protected void handleSequenceFlow() {
-        CommandContextUtil.getHistoryManager(commandContext).recordActivityEnd(execution, null);
+        CommandContextUtil.getActivityInstanceEntityManager(commandContext).recordActivityEnd(execution, null);
         agenda.planContinueProcessOperation(execution);
     }
 
     protected void cleanupCompensation() {
 
         // The compensation is at the end here. Simply stop the execution.
-        CommandContextUtil.getExecutionEntityManager(commandContext).deleteExecutionAndRelatedData(execution, null);
+        CommandContextUtil.getExecutionEntityManager(commandContext).deleteExecutionAndRelatedData(execution, null, false);
 
         ExecutionEntity parentExecutionEntity = execution.getParent();
         if (parentExecutionEntity.isScope() && !parentExecutionEntity.isProcessInstanceType()) {
@@ -307,6 +317,7 @@ public class TakeOutgoingSequenceFlowsOperation extends AbstractOperation {
                 for (BoundaryEvent event : activity.getBoundaryEvents()) {
                     if (CollectionUtil.isNotEmpty(event.getEventDefinitions()) &&
                             event.getEventDefinitions().get(0) instanceof CancelEventDefinition) {
+                        
                         notToDeleteEvents.add(event.getId());
                     }
                 }
@@ -315,7 +326,7 @@ public class TakeOutgoingSequenceFlowsOperation extends AbstractOperation {
                 Collection<ExecutionEntity> childExecutions = CommandContextUtil.getExecutionEntityManager(commandContext).findChildExecutionsByParentExecutionId(execution.getId());
                 for (ExecutionEntity childExecution : childExecutions) {
                     if (childExecution.getCurrentFlowElement() == null || !notToDeleteEvents.contains(childExecution.getCurrentFlowElement().getId())) {
-                        CommandContextUtil.getExecutionEntityManager(commandContext).deleteExecutionAndRelatedData(childExecution, null);
+                        CommandContextUtil.getExecutionEntityManager(commandContext).deleteExecutionAndRelatedData(childExecution, null, false);
                     }
                 }
             }

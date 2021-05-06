@@ -12,13 +12,19 @@
  */
 package org.flowable.engine.impl.history.async.json.transformer;
 
+import static org.flowable.job.service.impl.history.async.util.AsyncHistoryJsonUtil.getDateFromJson;
+import static org.flowable.job.service.impl.history.async.util.AsyncHistoryJsonUtil.getStringFromJson;
+
+import java.util.Collections;
+import java.util.List;
+
 import org.apache.commons.lang3.StringUtils;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
+import org.flowable.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.flowable.engine.impl.history.async.HistoryJsonConstants;
 import org.flowable.engine.impl.persistence.entity.HistoricActivityInstanceEntity;
-import org.flowable.engine.impl.util.CommandContextUtil;
+import org.flowable.identitylink.api.IdentityLinkType;
 import org.flowable.identitylink.service.HistoricIdentityLinkService;
-import org.flowable.identitylink.service.IdentityLinkType;
 import org.flowable.identitylink.service.impl.persistence.entity.HistoricIdentityLinkEntity;
 import org.flowable.job.service.impl.persistence.entity.HistoryJobEntity;
 
@@ -26,9 +32,13 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class TaskAssigneeChangedHistoryJsonTransformer extends AbstractNeedsTaskHistoryJsonTransformer {
 
+    public TaskAssigneeChangedHistoryJsonTransformer(ProcessEngineConfigurationImpl processEngineConfiguration) {
+        super(processEngineConfiguration);
+    }
+    
     @Override
-    public String getType() {
-        return HistoryJsonConstants.TYPE_TASK_ASSIGNEE_CHANGED;
+    public List<String> getTypes() {
+        return Collections.singletonList(HistoryJsonConstants.TYPE_TASK_ASSIGNEE_CHANGED);
     }
 
     @Override
@@ -55,12 +65,18 @@ public class TaskAssigneeChangedHistoryJsonTransformer extends AbstractNeedsTask
 
         String executionId = getStringFromJson(historicalData, HistoryJsonConstants.EXECUTION_ID);
         String activityId = getStringFromJson(historicalData, HistoryJsonConstants.ACTIVITY_ID);
+        String runtimeActivityInstanceId = getStringFromJson(historicalData, HistoryJsonConstants.RUNTIME_ACTIVITY_INSTANCE_ID);
         if (StringUtils.isNotEmpty(executionId) && StringUtils.isNotEmpty(activityId)) {
             
             String activityAssigneeHandled = getStringFromJson(historicalData, HistoryJsonConstants.ACTIVITY_ASSIGNEE_HANDLED);
             
             if (activityAssigneeHandled == null || !Boolean.valueOf(activityAssigneeHandled)) {
-                HistoricActivityInstanceEntity historicActivityInstanceEntity = findHistoricActivityInstance(commandContext, executionId, activityId);
+                HistoricActivityInstanceEntity historicActivityInstanceEntity;
+                if (StringUtils.isEmpty(runtimeActivityInstanceId)) {
+                    historicActivityInstanceEntity = findHistoricActivityInstance(commandContext, executionId, activityId);
+                } else {
+                    historicActivityInstanceEntity = processEngineConfiguration.getHistoricActivityInstanceEntityManager().findById(runtimeActivityInstanceId);
+                }
                 
                 if (historicActivityInstanceEntity == null) {
                     // activity instance not found, ignoring event
@@ -73,7 +89,7 @@ public class TaskAssigneeChangedHistoryJsonTransformer extends AbstractNeedsTask
         
         String taskId = getStringFromJson(historicalData, HistoryJsonConstants.ID);
         if (StringUtils.isNotEmpty(taskId)) {
-            HistoricIdentityLinkService historicIdentityLinkService = CommandContextUtil.getHistoricIdentityLinkService();
+            HistoricIdentityLinkService historicIdentityLinkService = processEngineConfiguration.getIdentityLinkServiceConfiguration().getHistoricIdentityLinkService();
             HistoricIdentityLinkEntity historicIdentityLinkEntity = historicIdentityLinkService.createHistoricIdentityLink();
             historicIdentityLinkEntity.setTaskId(taskId);
             historicIdentityLinkEntity.setType(IdentityLinkType.ASSIGNEE);

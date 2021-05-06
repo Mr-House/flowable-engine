@@ -13,9 +13,13 @@
 package org.flowable.cmmn.engine.impl.agenda.operation;
 
 import org.flowable.cmmn.api.runtime.PlanItemInstanceState;
+import org.flowable.cmmn.engine.impl.persistence.entity.CaseInstanceEntity;
 import org.flowable.cmmn.engine.impl.persistence.entity.PlanItemInstanceEntity;
+import org.flowable.cmmn.engine.impl.repository.CaseDefinitionUtil;
+import org.flowable.cmmn.engine.impl.util.CommandContextUtil;
+import org.flowable.cmmn.model.Case;
 import org.flowable.cmmn.model.Stage;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
 
 /**
  * @author Joram Barrez
@@ -29,16 +33,27 @@ public class InitStageInstanceOperation extends AbstractPlanItemInstanceOperatio
     @Override
     public void run() {
         Stage stage = getStage(planItemInstanceEntity);
-        
-        planItemInstanceEntity.setState(PlanItemInstanceState.ACTIVE);
+
+        String oldState = planItemInstanceEntity.getState();
+        String newState = PlanItemInstanceState.ACTIVE;
+        planItemInstanceEntity.setState(newState);
+        CommandContextUtil.getCmmnEngineConfiguration(commandContext).getListenerNotificationHelper()
+            .executeLifecycleListeners(commandContext, planItemInstanceEntity, oldState, newState);
+
         planItemInstanceEntity.setStage(true);
-        
-        createPlanItemInstances(commandContext, 
-                stage.getPlanItems(), 
-                planItemInstanceEntity.getCaseDefinitionId(), 
-                planItemInstanceEntity.getCaseInstanceId(), 
-                planItemInstanceEntity.getId(), 
+
+        Case caseModel = CaseDefinitionUtil.getCase(planItemInstanceEntity.getCaseDefinitionId());
+        CaseInstanceEntity caseInstanceEntity = CommandContextUtil.getCmmnEngineConfiguration(commandContext).getCaseInstanceEntityManager()
+            .findById(planItemInstanceEntity.getCaseInstanceId());
+
+        createPlanItemInstancesForNewOrReactivatedStage(commandContext, caseModel,
+                stage.getPlanItems(),
+                caseInstanceEntity,
+                planItemInstanceEntity,
                 planItemInstanceEntity.getTenantId());
+
+        planItemInstanceEntity.setLastStartedTime(getCurrentTime(commandContext));
+        CommandContextUtil.getCmmnHistoryManager(commandContext).recordPlanItemInstanceStarted(planItemInstanceEntity);
     }
 
     @Override

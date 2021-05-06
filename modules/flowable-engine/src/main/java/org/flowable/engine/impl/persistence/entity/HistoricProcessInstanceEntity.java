@@ -16,7 +16,7 @@ package org.flowable.engine.impl.persistence.entity;
 
 import java.util.List;
 
-import org.flowable.engine.common.impl.db.HasRevision;
+import org.flowable.common.engine.impl.db.HasRevision;
 import org.flowable.engine.history.HistoricProcessInstance;
 import org.flowable.variable.service.impl.persistence.entity.HistoricVariableInstanceEntity;
 
@@ -56,6 +56,12 @@ public interface HistoricProcessInstanceEntity extends HistoricScopeInstanceEnti
     void setCallbackId(String callbackId);
     
     void setCallbackType(String callbackType);
+
+    void setReferenceId(String referenceId);
+
+    void setReferenceType(String referenceType);
+
+    void setPropagatedStageInstanceId(String propagatedStageInstanceId);
     
     List<HistoricVariableInstanceEntity> getQueryVariables();
 

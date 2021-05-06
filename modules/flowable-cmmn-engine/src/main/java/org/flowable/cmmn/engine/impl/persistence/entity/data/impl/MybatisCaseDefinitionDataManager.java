@@ -23,7 +23,7 @@ import org.flowable.cmmn.engine.impl.persistence.entity.CaseDefinitionEntityImpl
 import org.flowable.cmmn.engine.impl.persistence.entity.data.AbstractCmmnDataManager;
 import org.flowable.cmmn.engine.impl.persistence.entity.data.CaseDefinitionDataManager;
 import org.flowable.cmmn.engine.impl.repository.CaseDefinitionQueryImpl;
-import org.flowable.engine.common.api.FlowableException;
+import org.flowable.common.engine.api.FlowableException;
 
 /**
  * @author Joram Barrez
@@ -77,6 +77,23 @@ public class MybatisCaseDefinitionDataManager extends AbstractCmmnDataManager<Ca
         parameters.put("caseDefinitionKey", caseDefinitionKey);
         parameters.put("tenantId", tenantId);
         return (CaseDefinitionEntity) getDbSqlSession().selectOne("selectCaseDefinitionByDeploymentAndKeyAndTenantId", parameters);
+    }
+
+    @Override
+    public CaseDefinitionEntity findCaseDefinitionByParentDeploymentAndKey(String parentDeploymentId, String caseDefinitionKey) {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("parentDeploymentId", parentDeploymentId);
+        parameters.put("caseDefinitionKey", caseDefinitionKey);
+        return (CaseDefinitionEntity) getDbSqlSession().selectOne("selectCaseDefinitionByParentDeploymentAndKey", parameters);
+    }
+
+    @Override
+    public CaseDefinitionEntity findCaseDefinitionByParentDeploymentAndKeyAndTenantId(String parentDeploymentId, String caseDefinitionKey, String tenantId) {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("parentDeploymentId", parentDeploymentId);
+        parameters.put("caseDefinitionKey", caseDefinitionKey);
+        parameters.put("tenantId", tenantId);
+        return (CaseDefinitionEntity) getDbSqlSession().selectOne("selectCaseDefinitionByParentDeploymentAndKeyAndTenantId", parameters);
     }
 
     @Override

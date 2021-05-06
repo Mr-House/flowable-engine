@@ -25,9 +25,9 @@ import org.activiti.engine.impl.cfg.BeansConfigurationHelper;
 import org.activiti.engine.impl.cfg.StandaloneInMemProcessEngineConfiguration;
 import org.activiti.engine.impl.cfg.StandaloneProcessEngineConfiguration;
 import org.activiti.engine.runtime.JobProcessor;
-import org.flowable.engine.cfg.MailServerInfo;
-import org.flowable.engine.common.impl.history.HistoryLevel;
-import org.flowable.engine.common.runtime.Clock;
+import org.flowable.common.engine.impl.cfg.mail.MailServerInfo;
+import org.flowable.common.engine.impl.history.HistoryLevel;
+import org.flowable.common.engine.impl.runtime.Clock;
 import org.flowable.image.ProcessDiagramGenerator;
 import org.flowable.job.service.impl.asyncexecutor.AsyncExecutor;
 
@@ -117,6 +117,7 @@ public abstract class ProcessEngineConfiguration {
     protected String mailServerUsername; // by default no name and password are provided, which
     protected String mailServerPassword; // means no authentication for mail server
     protected int mailServerPort = 25;
+    protected int mailServerSSLPort = 465;
     protected boolean useSSL;
     protected boolean useTLS;
     protected String mailServerDefaultFrom = "activiti@localhost";
@@ -210,6 +211,11 @@ public abstract class ProcessEngineConfiguration {
     protected boolean tablePrefixIsSchema;
 
     protected boolean isCreateDiagramOnDeploy = true;
+    
+    /**
+     *  include the sequence flow name in case there's no Label DI, 
+     */
+    protected boolean drawSequenceFlowNameWithNoLabelDI = false;
 
     protected String xmlEncoding = "UTF-8";
 
@@ -358,6 +364,15 @@ public abstract class ProcessEngineConfiguration {
 
     public ProcessEngineConfiguration setMailServerPort(int mailServerPort) {
         this.mailServerPort = mailServerPort;
+        return this;
+    }
+
+    public int getMailServerSSLPort() {
+        return mailServerSSLPort;
+    }
+
+    public ProcessEngineConfiguration setMailServerSSLPort(int mailServerSSLPort) {
+        this.mailServerSSLPort = mailServerSSLPort;
         return this;
     }
 
@@ -593,7 +608,16 @@ public abstract class ProcessEngineConfiguration {
         this.classLoader = classLoader;
         return this;
     }
-
+    
+    public boolean isDrawSequenceFlowNameWithNoLabelDI() {
+        return drawSequenceFlowNameWithNoLabelDI;
+    }
+    
+    public ProcessEngineConfiguration setDrawSequenceFlowNameWithNoLabelDI(boolean drawSequenceFlowNameWithNoLabelDI) {
+        this.drawSequenceFlowNameWithNoLabelDI = drawSequenceFlowNameWithNoLabelDI;
+        return this;
+    }
+    
     public boolean isUseClassForNameClassLoading() {
         return useClassForNameClassLoading;
     }

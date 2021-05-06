@@ -16,7 +16,7 @@ package org.flowable.rest.service.api.identity;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.flowable.engine.common.api.FlowableObjectNotFoundException;
+import org.flowable.common.engine.api.FlowableObjectNotFoundException;
 import org.flowable.idm.api.Group;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -47,10 +47,8 @@ public class GroupMembershipResource extends BaseGroupResource {
 
         Group group = getGroupFromRequest(groupId);
 
-        // Check if user is not a member of group since API doesn't return typed
-        // exception
+        // Check if user is not a member of group since API does not return typed exception
         if (identityService.createUserQuery().memberOfGroup(group.getId()).userId(userId).count() != 1) {
-
             throw new FlowableObjectNotFoundException("User '" + userId + "' is not part of group '" + group.getId() + "'.", null);
         }
 

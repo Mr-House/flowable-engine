@@ -14,25 +14,35 @@ package org.flowable.engine.impl.history.async.json.transformer;
 
 import java.util.List;
 
-import org.flowable.engine.common.impl.interceptor.CommandContext;
+import org.flowable.common.engine.api.scope.ScopeTypes;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
 import org.flowable.engine.history.HistoricProcessInstance;
+import org.flowable.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.flowable.engine.impl.persistence.entity.HistoricProcessInstanceEntity;
 import org.flowable.engine.impl.persistence.entity.HistoricProcessInstanceEntityManager;
-import org.flowable.engine.impl.util.CommandContextUtil;
 import org.flowable.engine.impl.util.TaskHelper;
+import org.flowable.entitylink.service.EntityLinkServiceConfiguration;
 
 public abstract class AbstractProcessInstanceDeleteHistoryTransformer extends AbstractHistoryJsonTransformer {
 
+    public AbstractProcessInstanceDeleteHistoryTransformer(ProcessEngineConfigurationImpl processEngineConfiguration) {
+        super(processEngineConfiguration);
+    }
+    
     protected void deleteProcessInstance(String processInstanceId, CommandContext commandContext) {
-        HistoricProcessInstanceEntityManager historicProcessInstanceEntityManager = CommandContextUtil.getHistoricProcessInstanceEntityManager(commandContext);
+        HistoricProcessInstanceEntityManager historicProcessInstanceEntityManager = processEngineConfiguration.getHistoricProcessInstanceEntityManager();
         HistoricProcessInstanceEntity historicProcessInstance = historicProcessInstanceEntityManager.findById(processInstanceId);
         
-        CommandContextUtil.getHistoricDetailEntityManager(commandContext).deleteHistoricDetailsByProcessInstanceId(processInstanceId);
-        CommandContextUtil.getHistoricVariableService().deleteHistoricVariableInstancesByProcessInstanceId(processInstanceId);
-        CommandContextUtil.getHistoricActivityInstanceEntityManager(commandContext).deleteHistoricActivityInstancesByProcessInstanceId(processInstanceId);
+        processEngineConfiguration.getHistoricDetailEntityManager().deleteHistoricDetailsByProcessInstanceId(processInstanceId);
+        processEngineConfiguration.getVariableServiceConfiguration().getHistoricVariableService().deleteHistoricVariableInstancesByProcessInstanceId(processInstanceId);
+        processEngineConfiguration.getHistoricActivityInstanceEntityManager().deleteHistoricActivityInstancesByProcessInstanceId(processInstanceId);
         TaskHelper.deleteHistoricTaskInstancesByProcessInstanceId(processInstanceId);
-        CommandContextUtil.getHistoricIdentityLinkService().deleteHistoricIdentityLinksByProcessInstanceId(processInstanceId);
-        CommandContextUtil.getCommentEntityManager(commandContext).deleteCommentsByProcessInstanceId(processInstanceId);
+        processEngineConfiguration.getIdentityLinkServiceConfiguration().getHistoricIdentityLinkService().deleteHistoricIdentityLinksByProcessInstanceId(processInstanceId);
+        EntityLinkServiceConfiguration entityLinkServiceConfiguration = processEngineConfiguration.getEntityLinkServiceConfiguration();
+        if (entityLinkServiceConfiguration != null) {
+            entityLinkServiceConfiguration.getHistoricEntityLinkService().deleteHistoricEntityLinksByScopeIdAndScopeType(processInstanceId, ScopeTypes.BPMN);
+        }
+        processEngineConfiguration.getCommentEntityManager().deleteCommentsByProcessInstanceId(processInstanceId);
 
         historicProcessInstanceEntityManager.delete(historicProcessInstance, false);
 

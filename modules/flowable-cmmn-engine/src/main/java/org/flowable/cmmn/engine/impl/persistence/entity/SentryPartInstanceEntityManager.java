@@ -14,12 +14,14 @@ package org.flowable.cmmn.engine.impl.persistence.entity;
 
 import java.util.List;
 
-import org.flowable.engine.common.impl.persistence.entity.EntityManager;
+import org.flowable.common.engine.impl.persistence.entity.EntityManager;
 
 /**
  * @author Joram Barrez
  */
 public interface SentryPartInstanceEntityManager extends EntityManager<SentryPartInstanceEntity> {
+
+    List<SentryPartInstanceEntity> findSentryPartInstancesByCaseInstanceId(String caseInstanceId);
 
     List<SentryPartInstanceEntity> findSentryPartInstancesByCaseInstanceIdAndNullPlanItemInstanceId(String caseInstanceId);
     

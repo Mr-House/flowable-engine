@@ -12,11 +12,14 @@
  */
 package org.flowable.engine.test.bpmn.sendtask;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import java.util.HashMap;
 import java.util.Map;
 
 import org.flowable.engine.test.Deployment;
 import org.flowable.engine.test.bpmn.servicetask.AbstractWebServiceTaskTest;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author Esteban Robles Luna
@@ -29,9 +32,10 @@ public class WebServiceSimplisticTest extends AbstractWebServiceTaskTest {
         return false;
     }
 
+    @Test
     @Deployment
     public void testAsyncInvocationWithSimplisticDataFlow() throws Exception {
-        assertEquals(-1, webServiceMock.getCount());
+        assertThat(webServiceMock.getCount()).isEqualTo(-1);
 
         Map<String, Object> variables = new HashMap<>();
         variables.put("NewCounterValueVariable", 23);
@@ -39,6 +43,6 @@ public class WebServiceSimplisticTest extends AbstractWebServiceTaskTest {
         processEngine.getRuntimeService().startProcessInstanceByKey("asyncWebServiceInvocationWithSimplisticDataFlow", variables);
         waitForJobExecutorToProcessAllJobs(10000L, 250L);
 
-        assertEquals(23, webServiceMock.getCount());
+        assertThat(webServiceMock.getCount()).isEqualTo(23);
     }
 }

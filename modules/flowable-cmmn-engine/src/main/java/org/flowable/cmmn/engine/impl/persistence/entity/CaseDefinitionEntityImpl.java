@@ -13,13 +13,17 @@
 
 package org.flowable.cmmn.engine.impl.persistence.entity;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.flowable.cmmn.engine.CmmnEngineConfiguration;
-import org.flowable.engine.common.impl.persistence.entity.AbstractEntity;
+import org.flowable.cmmn.engine.impl.util.CommandContextUtil;
+import org.flowable.common.engine.api.scope.ScopeTypes;
+import org.flowable.identitylink.service.impl.persistence.entity.IdentityLinkEntity;
 
-public class CaseDefinitionEntityImpl extends AbstractEntity implements CaseDefinitionEntity {
+public class CaseDefinitionEntityImpl extends AbstractCmmnEngineEntity implements CaseDefinitionEntity {
     
     protected String category;
     protected String name;
@@ -32,6 +36,8 @@ public class CaseDefinitionEntityImpl extends AbstractEntity implements CaseDefi
     protected String deploymentId;
     protected boolean hasStartFormKey;
     protected String tenantId = CmmnEngineConfiguration.NO_TENANT_ID;
+    protected boolean isIdentityLinksInitialized;
+    protected List<IdentityLinkEntity> definitionIdentityLinkEntities = new ArrayList<>();
     
     @Override
     public Object getPersistentState() {
@@ -152,6 +158,17 @@ public class CaseDefinitionEntityImpl extends AbstractEntity implements CaseDefi
     @Override
     public void setTenantId(String tenantId) {
         this.tenantId = tenantId;
+    }
+    
+    @Override
+    public List<IdentityLinkEntity> getIdentityLinks() {
+        if (!isIdentityLinksInitialized) {
+            definitionIdentityLinkEntities = CommandContextUtil.getCmmnEngineConfiguration().getIdentityLinkServiceConfiguration()
+                    .getIdentityLinkService().findIdentityLinksByScopeDefinitionIdAndType(id, ScopeTypes.CMMN);
+            isIdentityLinksInitialized = true;
+        }
+
+        return definitionIdentityLinkEntities;
     }
     
 }

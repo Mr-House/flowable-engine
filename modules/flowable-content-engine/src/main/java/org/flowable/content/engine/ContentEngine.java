@@ -12,16 +12,16 @@
  */
 package org.flowable.content.engine;
 
+import org.flowable.common.engine.impl.FlowableVersions;
 import org.flowable.content.api.ContentManagementService;
 import org.flowable.content.api.ContentService;
-import org.flowable.engine.common.impl.FlowableVersions;
 
 public interface ContentEngine {
 
     /**
      * the version of the flowable content library
      */
-    public static String VERSION = FlowableVersions.CURRENT_VERSION;
+    String VERSION = FlowableVersions.CURRENT_VERSION;
 
     /**
      * The name as specified in 'content-engine-name' in the flowable.content.cfg.xml configuration file. The default name for a process engine is 'default

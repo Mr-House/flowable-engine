@@ -13,6 +13,24 @@
 
 package org.flowable.rest.service.api.management;
 
+import static org.flowable.common.rest.api.PaginateListUtil.paginateList;
+
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.flowable.common.engine.api.FlowableIllegalArgumentException;
+import org.flowable.common.rest.api.DataResponse;
+import org.flowable.common.rest.api.RequestUtil;
+import org.flowable.engine.ManagementService;
+import org.flowable.job.api.SuspendedJobQuery;
+import org.flowable.rest.service.api.BpmnRestApiInterceptor;
+import org.flowable.rest.service.api.RestResponseFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
@@ -21,19 +39,6 @@ import io.swagger.annotations.ApiParam;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 import io.swagger.annotations.Authorization;
-import org.flowable.engine.ManagementService;
-import org.flowable.engine.common.api.FlowableIllegalArgumentException;
-import org.flowable.job.api.SuspendedJobQuery;
-import org.flowable.rest.api.DataResponse;
-import org.flowable.rest.api.RequestUtil;
-import org.flowable.rest.service.api.RestResponseFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-
-import javax.servlet.http.HttpServletRequest;
-import java.util.Map;
 
 /**
  * @author Joram Barrez
@@ -47,6 +52,9 @@ public class SuspendedJobCollectionResource {
 
     @Autowired
     protected ManagementService managementService;
+    
+    @Autowired(required=false)
+    protected BpmnRestApiInterceptor restApiInterceptor;
 
     // Fixme documentation & real parameters
     @ApiOperation(value = "List suspended jobs", tags = { "Jobs" }, nickname = "listSuspendedJobs")
@@ -55,8 +63,9 @@ public class SuspendedJobCollectionResource {
             @ApiImplicitParam(name = "processInstanceId", dataType = "string", value = "Only return jobs part of a process with the given id", paramType = "query"),
             @ApiImplicitParam(name = "executionId", dataType = "string", value = "Only return jobs part of an execution with the given id", paramType = "query"),
             @ApiImplicitParam(name = "processDefinitionId", dataType = "string", value = "Only return jobs with the given process definition id", paramType = "query"),
-            // @ApiImplicitParam(name = "withRetriesLeft", dataType = "boolean", value = "If true, only return jobs with retries left. If false, this parameter is ignored.", paramType = "query"),
-            // @ApiImplicitParam(name = "executable", dataType = "boolean", value = "If true, only return jobs which are executable. If false, this parameter is ignored.", paramType = "query"),
+            @ApiImplicitParam(name = "elementId", dataType = "string", value = "Only return jobs with the given element id", paramType = "query"),
+            @ApiImplicitParam(name = "elementName", dataType = "string", value = "Only return jobs with the given element name", paramType = "query"),
+            @ApiImplicitParam(name = "executable", dataType = "boolean", value = "If true, only return jobs which are executable. If false, this parameter is ignored.", paramType = "query"),
             @ApiImplicitParam(name = "timersOnly", dataType = "boolean", value = "If true, only return jobs which are timers. If false, this parameter is ignored. Cannot be used together with 'messagesOnly'.", paramType = "query"),
             @ApiImplicitParam(name = "messagesOnly", dataType = "boolean", value = "If true, only return jobs which are messages. If false, this parameter is ignored. Cannot be used together with 'timersOnly'", paramType = "query"),
             @ApiImplicitParam(name = "withException", dataType = "boolean", value = "If true, only return jobs for which an exception occurred while executing it. If false, this parameter is ignored.", paramType = "query"),
@@ -68,6 +77,7 @@ public class SuspendedJobCollectionResource {
             @ApiImplicitParam(name = "withoutTenantId", dataType = "boolean", value = "If true, only returns jobs without a tenantId set. If false, the withoutTenantId parameter is ignored.", paramType = "query"),
             @ApiImplicitParam(name = "locked", dataType = "boolean", value = "If true, only return jobs which are locked.  If false, this parameter is ignored.", paramType = "query"),
             @ApiImplicitParam(name = "unlocked", dataType = "boolean", value = "If true, only return jobs which are unlocked. If false, this parameter is ignored.", paramType = "query"),
+            @ApiImplicitParam(name = "withoutScopeType", dataType = "boolean", value = "If true, only returns jobs without a scope type set. If false, the withoutScopeType parameter is ignored.", paramType = "query"),
             @ApiImplicitParam(name = "sort", dataType = "string", value = "Property to sort on, to be used together with the order.", allowableValues = "id,dueDate,executionId,processInstanceId,retries,tenantId", paramType = "query")
     })
     @ApiResponses(value = {
@@ -89,6 +99,12 @@ public class SuspendedJobCollectionResource {
         }
         if (allRequestParams.containsKey("processDefinitionId")) {
             query.processDefinitionId(allRequestParams.get("processDefinitionId"));
+        }
+        if (allRequestParams.containsKey("elementId")) {
+            query.elementId(allRequestParams.get("elementId"));
+        }
+        if (allRequestParams.containsKey("elementName")) {
+            query.elementName(allRequestParams.get("elementName"));
         }
         if (allRequestParams.containsKey("executable")) {
             query.executable();
@@ -141,7 +157,16 @@ public class SuspendedJobCollectionResource {
                 query.jobWithoutTenantId();
             }
         }
+        if (allRequestParams.containsKey("withoutScopeType")) {
+            if (Boolean.valueOf(allRequestParams.get("withoutScopeType"))) {
+                query.withoutScopeType();
+            }
+        }
+        
+        if (restApiInterceptor != null) {
+            restApiInterceptor.accessSuspendedJobInfoWithQuery(query);
+        }
 
-        return new JobPaginateList(restResponseFactory).paginateList(allRequestParams, query, "id", JobQueryProperties.PROPERTIES);
+        return paginateList(allRequestParams, query, "id", JobQueryProperties.PROPERTIES, restResponseFactory::createJobResponseList);
     }
 }

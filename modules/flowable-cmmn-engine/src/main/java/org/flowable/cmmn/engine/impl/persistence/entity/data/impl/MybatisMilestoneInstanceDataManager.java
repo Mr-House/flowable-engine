@@ -21,7 +21,7 @@ import org.flowable.cmmn.engine.impl.persistence.entity.MilestoneInstanceEntityI
 import org.flowable.cmmn.engine.impl.persistence.entity.data.AbstractCmmnDataManager;
 import org.flowable.cmmn.engine.impl.persistence.entity.data.MilestoneInstanceDataManager;
 import org.flowable.cmmn.engine.impl.runtime.MilestoneInstanceQueryImpl;
-import org.flowable.engine.common.impl.db.CachedEntityMatcherAdapter;
+import org.flowable.common.engine.impl.persistence.cache.CachedEntityMatcherAdapter;
 
 /**
  * @author Joram Barrez
@@ -29,7 +29,7 @@ import org.flowable.engine.common.impl.db.CachedEntityMatcherAdapter;
 public class MybatisMilestoneInstanceDataManager extends AbstractCmmnDataManager<MilestoneInstanceEntity> implements MilestoneInstanceDataManager {
     
     protected MilestoneInstanceByCaseInstanceIdCachedEntityMatcher milestoneInstanceByCaseInstanceIdCachedEntityMatcher 
-        = new MilestoneInstanceByCaseInstanceIdCachedEntityMatcher();
+            = new MilestoneInstanceByCaseInstanceIdCachedEntityMatcher();
 
     public MybatisMilestoneInstanceDataManager(CmmnEngineConfiguration cmmnEngineConfiguration) {
         super(cmmnEngineConfiguration);
@@ -48,7 +48,7 @@ public class MybatisMilestoneInstanceDataManager extends AbstractCmmnDataManager
     @SuppressWarnings("unchecked")
     @Override
     public List<MilestoneInstance> findMilestoneInstancesByQueryCriteria(MilestoneInstanceQueryImpl query) {
-        return getDbSqlSession().selectList("selectMilestoneInstancesByQueryCriteria", query);
+        return getDbSqlSession().selectList("selectMilestoneInstancesByQueryCriteria", query, getManagedEntityClass());
     }
     
     @Override
@@ -63,7 +63,7 @@ public class MybatisMilestoneInstanceDataManager extends AbstractCmmnDataManager
     
     @Override
     public void deleteByCaseInstanceId(String caseInstanceId) {
-        bulkDelete("deleteMilestoneInstanceByCaseInstanceId", caseInstanceId, getManagedEntityClass(), milestoneInstanceByCaseInstanceIdCachedEntityMatcher);
+        bulkDelete("deleteMilestoneInstanceByCaseInstanceId", milestoneInstanceByCaseInstanceIdCachedEntityMatcher, caseInstanceId);
     }
     
     public static class MilestoneInstanceByCaseInstanceIdCachedEntityMatcher extends CachedEntityMatcherAdapter<MilestoneInstanceEntity> {

@@ -12,10 +12,12 @@
  */
 package org.flowable.cmmn.engine.impl.agenda;
 
+import org.flowable.cmmn.engine.impl.behavior.impl.ChildTaskActivityBehavior;
 import org.flowable.cmmn.engine.impl.criteria.PlanItemLifeCycleEvent;
 import org.flowable.cmmn.engine.impl.persistence.entity.CaseInstanceEntity;
 import org.flowable.cmmn.engine.impl.persistence.entity.PlanItemInstanceEntity;
-import org.flowable.engine.common.impl.agenda.Agenda;
+import org.flowable.cmmn.engine.interceptor.MigrationContext;
+import org.flowable.common.engine.impl.agenda.Agenda;
 
 /**
  * @author Joram Barrez
@@ -24,36 +26,64 @@ public interface CmmnEngineAgenda extends Agenda {
 
     void planInitPlanModelOperation(CaseInstanceEntity caseInstanceEntity);
 
+    void planReactivateCaseInstanceOperation(CaseInstanceEntity caseInstanceEntity);
+
+    void planReactivatePlanModelOperation(CaseInstanceEntity caseInstanceEntity);
+
     void planInitStageOperation(PlanItemInstanceEntity planItemInstanceEntity);
-    
+
     void planCreatePlanItemInstanceOperation(PlanItemInstanceEntity planItemInstanceEntity);
 
-    void planActivatePlanItemInstanceOperation(PlanItemInstanceEntity planItemInstanceEntity);
+    void planCreateRepeatedPlanItemInstanceOperation(PlanItemInstanceEntity planItemInstanceEntity);
+
+    void planReactivatePlanItemInstanceOperation(PlanItemInstanceEntity planItemInstanceEntity);
+
+    void planCreatePlanItemInstanceForRepetitionOperation(PlanItemInstanceEntity planItemInstanceEntity);
+
+    void planInitiatePlanItemInstanceOperation(PlanItemInstanceEntity planItemInstanceEntity);
+
+    void planDismissPlanItemInstanceOperation(PlanItemInstanceEntity planItemInstanceEntity);
+
+    void planActivatePlanItemInstanceOperation(PlanItemInstanceEntity planItemInstanceEntity, String entryCriterionId);
+
+    void planEvaluateToActivatePlanItemInstanceOperation(PlanItemInstanceEntity planItemInstanceEntity);
+
+    void planStartPlanItemInstanceOperation(PlanItemInstanceEntity planItemInstanceEntity, String entryCriterionId);
     
-    void planStartPlanItemInstanceOperation(PlanItemInstanceEntity planItemInstanceEntity);
+    void planStartPlanItemInstanceOperation(PlanItemInstanceEntity planItemInstanceEntity, String entryCriterionId, ChildTaskActivityBehavior.VariableInfo childTaskVariableInfo);
     
-    void planEnablePlanItemInstanceOperation(PlanItemInstanceEntity planItemInstanceEntity);
+    void planStartPlanItemInstanceOperation(PlanItemInstanceEntity planItemInstanceEntity, String entryCriterionId, MigrationContext migrationContext);
     
+    void planEnablePlanItemInstanceOperation(PlanItemInstanceEntity planItemInstanceEntity, String entryCriterionId);
+
+    void planActivateAsyncPlanItemInstanceOperation(PlanItemInstanceEntity planItemInstanceEntity, String entryCriterionId);
+
     void planDisablePlanItemInstanceOperation(PlanItemInstanceEntity planItemInstanceEntity);
 
     void planCompletePlanItemInstanceOperation(PlanItemInstanceEntity planItemInstanceEntity);
 
     void planOccurPlanItemInstanceOperation(PlanItemInstanceEntity planItemInstanceEntity);
 
-    void planExitPlanItemInstanceOperation(PlanItemInstanceEntity planItemInstanceEntity);
+    void planExitPlanItemInstanceOperation(PlanItemInstanceEntity planItemInstanceEntity, String exitCriterionId, String exitType, String exitEventType);
 
-    void planTerminatePlanItemInstanceOperation(PlanItemInstanceEntity planItemInstanceEntity);
+    void planTerminatePlanItemInstanceOperation(PlanItemInstanceEntity planItemInstanceEntity, String exitType, String exitEventType);
 
     void planTriggerPlanItemInstanceOperation(PlanItemInstanceEntity planItemInstanceEntity);
+    
+    void planChangePlanItemInstanceToAvailableOperation(PlanItemInstanceEntity planItemInstanceEntity);
 
     void planCompleteCaseInstanceOperation(CaseInstanceEntity caseInstanceEntity);
 
-    void planTerminateCaseInstanceOperation(String caseInstanceEntityId, boolean manualTermination);
+    void planManualTerminateCaseInstanceOperation(String caseInstanceEntityId);
+
+    void planTerminateCaseInstanceOperation(String caseInstanceEntityId, String exitCriterionId, String exitType, String exitEventType);
 
     void planEvaluateCriteriaOperation(String caseInstanceEntityId);
     
     void planEvaluateCriteriaOperation(String caseInstanceEntityId, boolean evaluateCaseInstanceComplete);
 
     void planEvaluateCriteriaOperation(String caseInstanceEntityId, PlanItemLifeCycleEvent lifeCycleEvent);
+    
+    void planEvaluateVariableEventListenersOperation(String caseInstanceEntityId);
 
 }

@@ -17,13 +17,14 @@ import java.util.Date;
 import java.util.List;
 import java.util.Set;
 
-import org.flowable.engine.common.api.query.Query;
+import org.flowable.common.engine.api.query.DeleteQuery;
+import org.flowable.common.engine.api.query.Query;
 
 /**
  * @author Joram Barrez
  * @author Tijs Rademakers
  */
-public interface HistoricCaseInstanceQuery extends Query<HistoricCaseInstanceQuery, HistoricCaseInstance> {
+public interface HistoricCaseInstanceQuery extends Query<HistoricCaseInstanceQuery, HistoricCaseInstance>, DeleteQuery<HistoricCaseInstanceQuery, HistoricCaseInstance> {
 
     /**
      * Only select historic case instances with the given identifier.
@@ -74,7 +75,19 @@ public interface HistoricCaseInstanceQuery extends Query<HistoricCaseInstanceQue
      * Only select historic case instances with the given case definition version.
      */
     HistoricCaseInstanceQuery caseDefinitionVersion(Integer caseDefinitionVersion);
-    
+
+    /**
+     * Include historic case variables in the historic case query result
+     */
+    HistoricCaseInstanceQuery includeCaseVariables();
+
+    /**
+     * Limit historic case instance variables
+     * @deprecated no longer needed, this is a noop
+     */
+    @Deprecated
+    HistoricCaseInstanceQuery limitCaseVariables(Integer historicCaseVariablesLimit);
+
     /**
      * Only select historic case instances that are defined by a case definition with the given deployment identifier.
      */
@@ -119,6 +132,21 @@ public interface HistoricCaseInstanceQuery extends Query<HistoricCaseInstanceQue
      * Only select historic case instances that are started by the provided user identifier.
      */
     HistoricCaseInstanceQuery startedBy(String userId);
+
+    /**
+     * Only select historic case instance that are reactivated before the provided date time.
+     */
+    HistoricCaseInstanceQuery lastReactivatedBefore(Date beforeTime);
+
+    /**
+     * Only select historic case instance that are reactivated after the provided date time.
+     */
+    HistoricCaseInstanceQuery lastReactivatedAfter(Date afterTime);
+
+    /**
+     * Only select historic case instances that are reactivated by the provided user identifier.
+     */
+    HistoricCaseInstanceQuery lastReactivatedBy(String userId);
     
     /**
      * Only select historic case instances that have the provided callback identifier.
@@ -129,6 +157,16 @@ public interface HistoricCaseInstanceQuery extends Query<HistoricCaseInstanceQue
      * Only select historic case instances that have the provided callback type.
      */
     HistoricCaseInstanceQuery caseInstanceCallbackType(String callbackType);
+
+    /**
+     * Only select historic case instance that have the provided reference identifier.
+     */
+    HistoricCaseInstanceQuery caseInstanceReferenceId(String referenceId);
+
+    /**
+     * Only select historic case instance that have the provided reference type.
+     */
+    HistoricCaseInstanceQuery caseInstanceReferenceType(String referenceType);
     
     /**
      * Only select historic case instances that have the tenant identifier.
@@ -139,7 +177,47 @@ public interface HistoricCaseInstanceQuery extends Query<HistoricCaseInstanceQue
      * Only select historic case instances that have no tenant identifier.
      */
     HistoricCaseInstanceQuery caseInstanceWithoutTenantId();
+
+    /**
+     * Begin an OR statement. Make sure you invoke the endOr method at the end of your OR statement. Only one OR statement is allowed, for the second call to this method an exception will be thrown.
+     */
+    HistoricCaseInstanceQuery or();
+
+    /**
+     * End an OR statement. Only one OR statement is allowed, for the second call to this method an exception will be thrown.
+     */
+    HistoricCaseInstanceQuery endOr();
     
+    /**
+     * Select the historic case instances with an active plan item definition id equal to the provided definition id.
+     */
+    HistoricCaseInstanceQuery activePlanItemDefinitionId(String planItemDefinitionId);
+    
+    /**
+     * Select the historic case instances with an active plan item definition id equal to one of the provided definition ids.
+     */
+    HistoricCaseInstanceQuery activePlanItemDefinitionIds(Set<String> planItemDefinitionIds);
+
+    /**
+     * Select the historic case instances with which the user with the given id is involved.
+     */
+    HistoricCaseInstanceQuery involvedUser(String userId);
+    
+    /**
+     * Select the historic case instances with which the user with the given id and identity link type are involved.
+     */
+    HistoricCaseInstanceQuery involvedUser(String userId, String identityLinkType);
+    
+    /**
+     * Select the historic case instances with which the group with the given id and identity link type are involved.
+     */
+    HistoricCaseInstanceQuery involvedGroup(String groupId, String identityLinkType);
+
+    /**
+     * Select the historic case instances with which the groups with the given ids are involved.
+     */
+    HistoricCaseInstanceQuery involvedGroups(Set<String> groupIds);
+
     /**
      * Only select case instances which had a global variable with the given value when they ended. 
      * Byte-arrays and {@link Serializable} objects (which are not primitive type wrappers) are not supported.
@@ -237,6 +315,14 @@ public interface HistoricCaseInstanceQuery extends Query<HistoricCaseInstanceQue
      *            cannot be null. The string can include the wildcard character '%' to express like-strategy: starts with (string%), ends with (%string) or contains (%string%).
      */
     HistoricCaseInstanceQuery variableValueLikeIgnoreCase(String name, String value);
+
+    /**
+     * Only select case instances that have a name like (case insensitive) the given name.
+     *
+     * @param nameLikeIgnoreCase
+     *          cannot be null. The string can include the wildcard character '%' to express like-strategy: starts with (string%), ends with (%string) or contains (%string%).
+     */
+    HistoricCaseInstanceQuery caseInstanceNameLikeIgnoreCase(String nameLikeIgnoreCase);
     
     /**
      * Only select case instances which have a variable with the given name.
@@ -255,6 +341,7 @@ public interface HistoricCaseInstanceQuery extends Query<HistoricCaseInstanceQue
     HistoricCaseInstanceQuery variableNotExists(String name);
     
     HistoricCaseInstanceQuery orderByCaseInstanceId();
+    HistoricCaseInstanceQuery orderByCaseInstanceName();
     HistoricCaseInstanceQuery orderByCaseDefinitionKey();
     HistoricCaseInstanceQuery orderByCaseDefinitionId();
     HistoricCaseInstanceQuery orderByStartTime();

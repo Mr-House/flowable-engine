@@ -12,34 +12,38 @@
  */
 package org.flowable.engine.impl.history.async.json.transformer;
 
-import java.util.Date;
+import static org.flowable.job.service.impl.history.async.util.AsyncHistoryJsonUtil.getDateFromJson;
+import static org.flowable.job.service.impl.history.async.util.AsyncHistoryJsonUtil.getStringFromJson;
 
-import org.flowable.engine.common.api.delegate.event.FlowableEngineEventType;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
+import java.util.Collections;
+import java.util.Date;
+import java.util.List;
+
+import org.flowable.common.engine.api.delegate.event.FlowableEngineEventType;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
 import org.flowable.engine.delegate.event.impl.FlowableEventBuilder;
+import org.flowable.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.flowable.engine.impl.history.async.HistoryJsonConstants;
 import org.flowable.engine.impl.persistence.entity.HistoricProcessInstanceEntity;
 import org.flowable.engine.impl.persistence.entity.HistoricProcessInstanceEntityManager;
-import org.flowable.engine.impl.util.CommandContextUtil;
 import org.flowable.job.service.impl.persistence.entity.HistoryJobEntity;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-public class ProcessInstanceEndHistoryJsonTransformer extends AbstractHistoryJsonTransformer {
+public class ProcessInstanceEndHistoryJsonTransformer extends AbstractNeedsProcessInstanceHistoryJsonTransformer {
 
-    @Override
-    public String getType() {
-        return HistoryJsonConstants.TYPE_PROCESS_INSTANCE_END;
+    public ProcessInstanceEndHistoryJsonTransformer(ProcessEngineConfigurationImpl processEngineConfiguration) {
+        super(processEngineConfiguration);
     }
     
     @Override
-    public boolean isApplicable(ObjectNode historicalData, CommandContext commandContext) {
-        return true;
+    public List<String> getTypes() {
+        return Collections.singletonList(HistoryJsonConstants.TYPE_PROCESS_INSTANCE_END);
     }
-
+    
     @Override
     public void transformJson(HistoryJobEntity job, ObjectNode historicalData, CommandContext commandContext) {
-        HistoricProcessInstanceEntityManager historicProcessInstanceEntityManager = CommandContextUtil.getHistoricProcessInstanceEntityManager(commandContext);
+        HistoricProcessInstanceEntityManager historicProcessInstanceEntityManager = processEngineConfiguration.getHistoricProcessInstanceEntityManager();
 
         String processInstanceId = getStringFromJson(historicalData, HistoryJsonConstants.PROCESS_INSTANCE_ID);
         HistoricProcessInstanceEntity historicProcessInstance = historicProcessInstanceEntityManager.findById(processInstanceId);
@@ -55,9 +59,7 @@ public class ProcessInstanceEndHistoryJsonTransformer extends AbstractHistoryJso
             if (startTime != null && endTime != null) {
                 historicProcessInstance.setDurationInMillis(endTime.getTime() - startTime.getTime());
             }
-    
-            dispatchEvent(commandContext, FlowableEventBuilder.createEntityEvent(FlowableEngineEventType.HISTORIC_PROCESS_INSTANCE_ENDED, historicProcessInstance));
-        
+
         } else {
             historicProcessInstance = historicProcessInstanceEntityManager.create();
             historicProcessInstance.setId(getStringFromJson(historicalData, HistoryJsonConstants.ID));
@@ -75,6 +77,9 @@ public class ProcessInstanceEndHistoryJsonTransformer extends AbstractHistoryJso
             historicProcessInstance.setSuperProcessInstanceId(getStringFromJson(historicalData, HistoryJsonConstants.SUPER_PROCESS_INSTANCE_ID));
             historicProcessInstance.setCallbackId(getStringFromJson(historicalData, HistoryJsonConstants.CALLBACK_ID));
             historicProcessInstance.setCallbackType(getStringFromJson(historicalData, HistoryJsonConstants.CALLBACK_TYPE));
+            historicProcessInstance.setReferenceId(getStringFromJson(historicalData, HistoryJsonConstants.REFERENCE_ID));
+            historicProcessInstance.setReferenceType(getStringFromJson(historicalData, HistoryJsonConstants.REFERENCE_TYPE));
+            historicProcessInstance.setPropagatedStageInstanceId(getStringFromJson(historicalData, HistoryJsonConstants.PROPAGATED_STAGE_INSTANCE_ID));
             historicProcessInstance.setTenantId(getStringFromJson(historicalData, HistoryJsonConstants.TENANT_ID));
     
             historicProcessInstanceEntityManager.insert(historicProcessInstance, false);
@@ -93,9 +98,9 @@ public class ProcessInstanceEndHistoryJsonTransformer extends AbstractHistoryJso
             }
             
             historicProcessInstanceEntityManager.update(historicProcessInstance, false);
-    
-            dispatchEvent(commandContext, FlowableEventBuilder.createEntityEvent(FlowableEngineEventType.HISTORIC_PROCESS_INSTANCE_ENDED, historicProcessInstance));
-        }
-    }
 
+        }
+        dispatchEvent(commandContext, FlowableEventBuilder.createEntityEvent(FlowableEngineEventType.HISTORIC_PROCESS_INSTANCE_ENDED, historicProcessInstance));
+    }
+    
 }

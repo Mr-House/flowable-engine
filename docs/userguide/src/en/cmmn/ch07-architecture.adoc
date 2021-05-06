@@ -21,14 +21,14 @@ From a high level point of view:
 
 * A *CmmnEngine* instance is created from a *CmmnEngineConfiguration*. The configuration instance can be created from a configuration file or programmatically.
 * The _CmmnEngine_ gives access the Flowable CMMN API's in the form of services: *CmmnRepositoryService*, *CmmnRuntimeService*, *CmmnTaskService*, *CmmnHistoryService*, *CmmnManagementService*. The naming of the services and their responsibilities is similar to the other engines.
-* Every API method is transformed into a *Command* instance. This _Command_ instance is passed into the *CommandExecutor* which, amongst others, makes it pass a stack of *CommandInterceptors*. These interceptors have various responsabilities, including handling transactions.
+* Every API method is transformed into a *Command* instance. This _Command_ instance is passed into the *CommandExecutor* which, amongst others, makes it pass a stack of *CommandInterceptors*. These interceptors have various responsibilities, including handling transactions.
 * Eventually, the _Command_ typically (unless it's a pure data modification _Command_) plans a *CmmnOperation* on the *CmmnEngineAgenda*.
 * Operations will be taken from the _CmmnEngineAgenda_ until no more operations are left. Typically, an operation will plan new operations as part of its logic.
 * The logic in the operations will call out to lower-level services and/or entity managers.
 
 A big difference between the BPMN and the CMMN engine is that the BPMN engine is generally 'local': the engine looks at the current state, checks what is ahead in the process and continues (of course this is a simplification, there are plenty of operations where this doesn't apply, but for making a distinction conceptually, it is correct). The CMMN engine works differently: in CMMN, data plays an important role and the change of data can trigger many things in various places in the case definition. For this reason, the *EvaluateCriteriaOperation* is planned and executed often whenever changes happen. The engine does optimize these evaluations when it detects duplicates or useless evaluations.
 
-Core to the working of the CMMN engine is the concept of a *Plan item instance*, a representation of which _plan items_ currently are _live_ in the case and which state they have. Quite different from BPMN, CMMN defines a strict state lifecyle for the plan items. This is represented in the _CmmnRuntimeService_ methods, the query API's and the data fields part of the *PlanItemInstance* object.
+Core to the working of the CMMN engine is the concept of a *Plan item instance*, a representation of which _plan items_ currently are _live_ in the case and which state they have. Quite different from BPMN, CMMN defines a strict state life cycle for the plan items. This is represented in the _CmmnRuntimeService_ methods, the query API's and the data fields part of the *PlanItemInstance* object.
 
 The working of the agenda, the operations and how plan item instances are handled can be inspected by setting logging to debug for the agenda package. For example, when using log4j:
 

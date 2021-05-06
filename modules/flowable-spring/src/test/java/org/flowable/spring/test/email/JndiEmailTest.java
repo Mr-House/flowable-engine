@@ -12,6 +12,8 @@
  */
 package org.flowable.spring.test.email;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -25,7 +27,8 @@ import javax.naming.NamingException;
 import org.flowable.engine.runtime.ProcessInstance;
 import org.flowable.engine.test.Deployment;
 import org.flowable.spring.impl.test.SpringFlowableTestCase;
-import org.junit.BeforeClass;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.mock.jndi.SimpleNamingContextBuilder;
@@ -36,8 +39,7 @@ public class JndiEmailTest extends SpringFlowableTestCase {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(JndiEmailTest.class);
 
-    @BeforeClass
-    @Override
+    @BeforeEach
     public void setUp() {
         Properties props = new Properties();
         props.put("mail.transport.protocol", "smtp");
@@ -60,10 +62,11 @@ public class JndiEmailTest extends SpringFlowableTestCase {
         }
     }
 
+    @Test
     @Deployment(resources = { "org/flowable/spring/test/email/EmailTaskUsingJndi.bpmn20.xml" })
     public void testEmailUsingJndi() {
         Map<String, Object> variables = new HashMap<>();
         ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("EmailJndiProcess", variables);
-        assertEquals(0, runtimeService.createProcessInstanceQuery().processInstanceId(processInstance.getId()).count());
+        assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(processInstance.getId()).count()).isZero();
     }
 }

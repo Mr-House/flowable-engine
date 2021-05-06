@@ -23,8 +23,8 @@ import org.flowable.bpmn.model.StartEvent;
 import org.flowable.bpmn.model.SubProcess;
 import org.flowable.bpmn.model.TimerEventDefinition;
 import org.flowable.bpmn.model.ValuedDataObject;
-import org.flowable.engine.common.impl.context.Context;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
+import org.flowable.common.engine.impl.context.Context;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
 import org.flowable.engine.delegate.DelegateExecution;
 import org.flowable.engine.history.DeleteReason;
 import org.flowable.engine.impl.persistence.entity.ExecutionEntity;
@@ -73,7 +73,7 @@ public class EventSubProcessTimerStartEventActivityBehavior extends AbstractBpmn
                 ExecutionEntity childExecutionEntity = childExecutions.get(i);
                 if (!childExecutionEntity.isEnded() && !childExecutionEntity.getId().equals(executionEntity.getId())) {
                     executionEntityManager.deleteExecutionAndRelatedData(childExecutionEntity,
-                            DeleteReason.EVENT_SUBPROCESS_INTERRUPTING + "(" + startEvent.getId() + ")");
+                            DeleteReason.EVENT_SUBPROCESS_INTERRUPTING + "(" + startEvent.getId() + ")", false);
                 }
             }
         }
@@ -83,10 +83,12 @@ public class EventSubProcessTimerStartEventActivityBehavior extends AbstractBpmn
         newSubProcessExecution.setEventScope(false);
         newSubProcessExecution.setScope(true);
 
+        CommandContextUtil.getActivityInstanceEntityManager(commandContext).recordActivityStart(newSubProcessExecution);
+
         ExecutionEntity outgoingFlowExecution = executionEntityManager.createChildExecution(newSubProcessExecution);
         outgoingFlowExecution.setCurrentFlowElement(startEvent);
-        
-        CommandContextUtil.getHistoryManager(commandContext).recordActivityStart(outgoingFlowExecution);
+
+        CommandContextUtil.getActivityInstanceEntityManager(commandContext).recordActivityStart(outgoingFlowExecution);
 
         leave(outgoingFlowExecution);
     }

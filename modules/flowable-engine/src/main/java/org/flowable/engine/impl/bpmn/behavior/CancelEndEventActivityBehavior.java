@@ -21,10 +21,10 @@ import org.flowable.bpmn.model.BoundaryEvent;
 import org.flowable.bpmn.model.CancelEventDefinition;
 import org.flowable.bpmn.model.FlowElement;
 import org.flowable.bpmn.model.SubProcess;
-import org.flowable.engine.common.api.FlowableException;
-import org.flowable.engine.common.impl.context.Context;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
-import org.flowable.engine.common.impl.util.CollectionUtil;
+import org.flowable.common.engine.api.FlowableException;
+import org.flowable.common.engine.impl.context.Context;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
+import org.flowable.common.engine.impl.util.CollectionUtil;
 import org.flowable.engine.delegate.DelegateExecution;
 import org.flowable.engine.history.DeleteReason;
 import org.flowable.engine.impl.bpmn.helper.ScopeUtil;
@@ -123,7 +123,7 @@ public class CancelEndEventActivityBehavior extends FlowNodeActivityBehavior {
         }
 
         // The current activity is finished (and will not be ended in the deleteChildExecutions)
-        CommandContextUtil.getHistoryManager(commandContext).recordActivityEnd(executionEntity, null);
+        CommandContextUtil.getActivityInstanceEntityManager(commandContext).recordActivityEnd(executionEntity, null);
 
         // set new parent for boundary event execution
         executionEntity.setParent(newParentScopeExecution);
@@ -148,7 +148,7 @@ public class CancelEndEventActivityBehavior extends FlowNodeActivityBehavior {
             }
         }
 
-        executionEntityManager.deleteExecutionAndRelatedData(parentExecution, deleteReason);
+        executionEntityManager.deleteExecutionAndRelatedData(parentExecution, deleteReason, false);
     }
 
 }

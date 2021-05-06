@@ -28,7 +28,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 /**
  * @author Joram Barrez
  */
-public class TimerEventListenerJsonConverter extends BaseCmmnJsonConverter {
+public class TimerEventListenerJsonConverter extends AbstractEventListenerJsonConverter {
     
     @Override
     protected String getStencilId(BaseElement baseElement) {
@@ -51,7 +51,7 @@ public class TimerEventListenerJsonConverter extends BaseCmmnJsonConverter {
 
     @Override
     protected void convertElementToJson(ObjectNode elementNode, ObjectNode propertiesNode, ActivityProcessor processor,
-            BaseElement baseElement, CmmnModel cmmnModel) {
+            BaseElement baseElement, CmmnModel cmmnModel, CmmnJsonConverterContext converterContext) {
         PlanItem planItem = (PlanItem) baseElement;
         TimerEventListener timerEventListener = (TimerEventListener) planItem.getPlanItemDefinition();
 
@@ -62,12 +62,14 @@ public class TimerEventListenerJsonConverter extends BaseCmmnJsonConverter {
             startTriggerPlanItemNode.put("id", timerEventListener.getTimerStartTriggerSourceRef());
             propertiesNode.put(PROPERTY_TIMER_START_TRIGGER_STANDARD_EVENT, timerEventListener.getTimerStartTriggerStandardEvent());
         }
+
+        convertCommonElementToJson(elementNode, propertiesNode, baseElement);
     }
 
     @Override
     protected BaseElement convertJsonToElement(JsonNode elementNode, JsonNode modelNode, ActivityProcessor processor,
             BaseElement parentElement, Map<String, JsonNode> shapeMap, CmmnModel cmmnModel,
-            CmmnModelIdHelper cmmnModelIdHelper) {
+            CmmnJsonConverterContext converterContext, CmmnModelIdHelper cmmnModelIdHelper) {
         
         TimerEventListener timerEventListener = new TimerEventListener();
         timerEventListener.setTimerExpression(CmmnJsonConverterUtil.getPropertyValueAsString(CmmnStencilConstants.PROPERTY_TIMER_EXPRESSION, elementNode));
@@ -84,7 +86,9 @@ public class TimerEventListenerJsonConverter extends BaseCmmnJsonConverter {
                 timerEventListener.setTimerStartTriggerStandardEvent(CmmnJsonConverterUtil.getPropertyValueAsString(CmmnStencilConstants.PROPERTY_TIMER_START_TRIGGER_STANDARD_EVENT, elementNode));
             }
         }
-        
+
+        convertCommonJsonToElement(elementNode, timerEventListener);
+
         return timerEventListener;
         
     }

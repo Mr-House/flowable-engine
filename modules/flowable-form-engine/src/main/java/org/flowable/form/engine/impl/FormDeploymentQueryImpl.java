@@ -16,10 +16,10 @@ package org.flowable.form.engine.impl;
 import java.io.Serializable;
 import java.util.List;
 
-import org.flowable.engine.common.api.FlowableIllegalArgumentException;
-import org.flowable.engine.common.impl.AbstractQuery;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
-import org.flowable.engine.common.impl.interceptor.CommandExecutor;
+import org.flowable.common.engine.api.FlowableIllegalArgumentException;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
+import org.flowable.common.engine.impl.interceptor.CommandExecutor;
+import org.flowable.common.engine.impl.query.AbstractQuery;
 import org.flowable.form.api.FormDeployment;
 import org.flowable.form.api.FormDeploymentQuery;
 import org.flowable.form.engine.impl.util.CommandContextUtil;
@@ -186,13 +186,11 @@ public class FormDeploymentQueryImpl extends AbstractQuery<FormDeploymentQuery, 
 
     @Override
     public long executeCount(CommandContext commandContext) {
-        checkQueryOk();
         return CommandContextUtil.getDeploymentEntityManager(commandContext).findDeploymentCountByQueryCriteria(this);
     }
 
     @Override
     public List<FormDeployment> executeList(CommandContext commandContext) {
-        checkQueryOk();
         return CommandContextUtil.getDeploymentEntityManager(commandContext).findDeploymentsByQueryCriteria(this);
     }
 
@@ -236,5 +234,13 @@ public class FormDeploymentQueryImpl extends AbstractQuery<FormDeploymentQuery, 
 
     public String getFormDefinitionKeyLike() {
         return formDefinitionKeyLike;
+    }
+
+    public String getParentDeploymentId() {
+        return parentDeploymentId;
+    }
+
+    public String getParentDeploymentIdLike() {
+        return parentDeploymentIdLike;
     }
 }

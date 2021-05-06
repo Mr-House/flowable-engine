@@ -14,7 +14,7 @@ package org.flowable.form.engine.impl.persistence.entity.data;
 
 import java.util.List;
 
-import org.flowable.engine.common.impl.persistence.entity.data.DataManager;
+import org.flowable.common.engine.impl.persistence.entity.data.DataManager;
 import org.flowable.form.api.FormInstance;
 import org.flowable.form.engine.impl.FormInstanceQueryImpl;
 import org.flowable.form.engine.impl.persistence.entity.FormInstanceEntity;
@@ -27,4 +27,10 @@ public interface FormInstanceDataManager extends DataManager<FormInstanceEntity>
     long findFormInstanceCountByQueryCriteria(FormInstanceQueryImpl submittedFormQuery);
 
     List<FormInstance> findFormInstancesByQueryCriteria(FormInstanceQueryImpl submittedFormQuery);
+    
+    void deleteFormInstancesByFormDefinitionId(String formDefinitionId);
+    
+    void deleteFormInstancesByProcessDefinitionId(String processDefinitionId);
+    
+    void deleteFormInstancesByScopeDefinitionId(String scopeDefinitionId);
 }

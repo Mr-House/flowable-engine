@@ -16,10 +16,11 @@ package org.flowable.form.engine.impl;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.flowable.engine.common.api.query.QueryProperty;
+import org.flowable.common.engine.api.query.QueryProperty;
+import org.flowable.form.api.FormDefinitionQuery;
 
 /**
- * Contains the possible properties that can be used in a {@link ProcessDefinitionQuery}.
+ * Contains the possible properties that can be used in a {@link FormDefinitionQuery}.
  * 
  * @author Joram Barrez
  */

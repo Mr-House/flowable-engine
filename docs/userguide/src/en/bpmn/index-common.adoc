@@ -10,6 +10,8 @@ include::ch04-API.adoc[]
 
 include::ch05-Spring.adoc[]
 
+include::ch05a-Spring-Boot.adoc[]
+
 include::ch06-Deployment.adoc[]
 
 include::ch07a-BPMN-Introduction.adoc[]
@@ -18,29 +20,31 @@ include::ch07b-BPMN-Constructs.adoc[]
 
 include::ch08-Forms.adoc[]
 
-include::ch09-JPA.adoc[]
+include::ch09-ProcessInstanceMigration.adoc[]
 
-include::ch10-History.adoc[]
+include::ch10-JPA.adoc[]
 
-include::ch11-IDM.adoc[]
+include::ch11-History.adoc[]
 
-include::ch12-Designer.adoc[]
+include::ch12-IDM.adoc[]
 
-include::ch13-UI.adoc[]
+include::ch13-Designer.adoc[]
+
+include::ch14-Applications.adoc[]
 
 
 [[restApiChapter]]
 
 == REST API
 
-include::../base/header-REST.adoc[]
+include::../base/header-rest.adoc[]
 
-include::ch14-REST.adoc[]
+include::ch15-REST.adoc[]
 
-include::ch15-Cdi.adoc[]
+include::ch16-Cdi.adoc[]
 
-include::ch16-Ldap.adoc[]
+include::ch17-Ldap.adoc[]
 
-include::ch17-Advanced.adoc[]
+include::ch18-Advanced.adoc[]
 
-include::ch18-tooling.adoc[]
+include::ch19-tooling.adoc[]

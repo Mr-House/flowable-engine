@@ -15,13 +15,21 @@ package org.flowable.http.delegate;
 
 import java.io.Serializable;
 
-import org.flowable.engine.common.api.variable.VariableContainer;
+import org.flowable.common.engine.api.variable.VariableContainer;
 import org.flowable.http.HttpResponse;
 
 /**
  * @author Tijs Rademakers
+ *
+ * @deprecated
  */
-public interface HttpResponseHandler extends Serializable {
+@Deprecated
+public interface HttpResponseHandler extends Serializable, org.flowable.http.common.api.delegate.HttpResponseHandler {
+
+    @Override
+    default void handleHttpResponse(VariableContainer execution, org.flowable.http.common.api.HttpResponse httpResponse) {
+        handleHttpResponse(execution, HttpResponse.fromApiHttpResponse(httpResponse));
+    }
 
     void handleHttpResponse(VariableContainer execution, HttpResponse httpResponse);
 }

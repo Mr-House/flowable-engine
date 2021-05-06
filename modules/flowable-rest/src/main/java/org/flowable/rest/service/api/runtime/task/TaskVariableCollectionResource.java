@@ -13,17 +13,17 @@
 
 package org.flowable.rest.service.api.runtime.task;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiImplicitParam;
-import io.swagger.annotations.ApiImplicitParams;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
-import io.swagger.annotations.ApiResponse;
-import io.swagger.annotations.ApiResponses;
-import io.swagger.annotations.Authorization;
-import org.flowable.engine.common.api.FlowableIllegalArgumentException;
-import org.flowable.rest.exception.FlowableConflictException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.flowable.common.engine.api.FlowableIllegalArgumentException;
+import org.flowable.common.rest.exception.FlowableConflictException;
 import org.flowable.rest.service.api.RestResponseFactory;
 import org.flowable.rest.service.api.engine.variable.RestVariable;
 import org.flowable.rest.service.api.engine.variable.RestVariable.RestVariableScope;
@@ -38,13 +38,16 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiImplicitParam;
+import io.swagger.annotations.ApiImplicitParams;
+import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
+import io.swagger.annotations.ApiResponse;
+import io.swagger.annotations.ApiResponses;
+import io.swagger.annotations.Authorization;
 
 /**
  * @author Frederik Heremans
@@ -65,7 +68,6 @@ public class TaskVariableCollectionResource extends TaskVariableBaseResource {
     @GetMapping(value = "/runtime/tasks/{taskId}/variables", produces = "application/json")
     public List<RestVariable> getVariables(@ApiParam(name = "taskId") @PathVariable String taskId, @ApiParam(hidden = true) @RequestParam(value = "scope", required = false) String scope, HttpServletRequest request) {
 
-        List<RestVariable> result = new ArrayList<>();
         Map<String, RestVariable> variableMap = new HashMap<>();
 
         // Check if it's a valid task to get the variables for
@@ -85,16 +87,16 @@ public class TaskVariableCollectionResource extends TaskVariableBaseResource {
         }
 
         // Get unique variables from map
-        result.addAll(variableMap.values());
+        List<RestVariable> result = new ArrayList<>(variableMap.values());
         return result;
     }
 
     // FIXME OASv3 to solve Multiple Endpoint issue
     @ApiOperation(value = "Create new variables on a task", tags = { "Tasks", "Task Variables" },
             notes = "This endpoint can be used in 2 ways: By passing a JSON Body (RestVariable or an Array of RestVariable) or by passing a multipart/form-data Object.\n"
-                    + "It's possible to create simple (non-binary) variable or list of variables or new binary variable \n"
+                    + "It is possible to create simple (non-binary) variable or list of variables or new binary variable \n"
                     + "Any number of variables can be passed into the request body array.\n"
-                    + "NB: Swagger V2 specification doesn't support this use case that's why this endpoint might be buggy/incomplete if used with other tools.")
+                    + "NB: Swagger V2 specification does not support this use case that is why this endpoint might be buggy/incomplete if used with other tools.")
     @ApiImplicitParams({
             @ApiImplicitParam(name = "body", type = "org.flowable.rest.service.api.engine.variable.RestVariable", value = "Create a variable on a task", paramType = "body", example = "{\n" +
                     "    \"name\":\"intProcVar\"\n" +
@@ -138,7 +140,7 @@ public class TaskVariableCollectionResource extends TaskVariableBaseResource {
             }
 
             if (inputVariables == null || inputVariables.size() == 0) {
-                throw new FlowableIllegalArgumentException("Request didn't contain a list of variables to create.");
+                throw new FlowableIllegalArgumentException("Request did not contain a list of variables to create.");
             }
 
             RestVariableScope sharedScope = null;
@@ -211,10 +213,8 @@ public class TaskVariableCollectionResource extends TaskVariableBaseResource {
             Map<String, Object> rawVariables = runtimeService.getVariables(task.getExecutionId());
             List<RestVariable> globalVariables = restResponseFactory.createRestVariables(rawVariables, task.getId(), RestResponseFactory.VARIABLE_TASK, RestVariableScope.GLOBAL);
 
-            // Overlay global variables over local ones. In case they are
-            // present the values are not overridden,
-            // since local variables get precedence over global ones at all
-            // times.
+            // Overlay global variables over local ones. In case they are present the values are not overridden,
+            // since local variables get precedence over global ones at all times.
             for (RestVariable var : globalVariables) {
                 if (!variableMap.containsKey(var.getName())) {
                     variableMap.put(var.getName(), var);

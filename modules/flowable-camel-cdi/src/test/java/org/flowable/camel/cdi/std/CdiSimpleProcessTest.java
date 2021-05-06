@@ -12,8 +12,7 @@
  */
 package org.flowable.camel.cdi.std;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Collections;
 import java.util.List;
@@ -60,7 +59,7 @@ public class CdiSimpleProcessTest extends StdCamelCdiFlowableTestCase {
             @Override
             public void configure() throws Exception {
                 from("direct:start").to("flowable:camelProcess");
-                from("flowable:camelProcess:serviceTask1").setBody().exchangeProperty("var1").to("mock:service1").setProperty("var2").constant("var2").setBody().properties();
+                from("flowable:camelProcess:serviceTask1").setBody().exchangeProperty("var1").to("mock:service1").setProperty("var2").constant("var2").setBody().exchangeProperties();
                 from("direct:receive").to("flowable:camelProcess:receive");
                 from("flowable:camelProcess:serviceTask2?copyVariablesToBodyAsMap=true").to("mock:service2");
             }
@@ -89,18 +88,18 @@ public class CdiSimpleProcessTest extends StdCamelCdiFlowableTestCase {
         String instanceId = (String) exchange.getProperty("PROCESS_ID_PROPERTY");
 
         ProcessInstance processInstance = processEngine.getRuntimeService().createProcessInstanceQuery().processInstanceId(instanceId).singleResult();
-        assertEquals(false,processInstance.isEnded());
+        assertThat(processInstance.isEnded()).isFalse();
 
         tpl.sendBodyAndProperty("direct:receive", null, FlowableProducer.PROCESS_ID_PROPERTY, instanceId);
 
         // check process ended
         processInstance = processEngine.getRuntimeService().createProcessInstanceQuery().processInstanceId(instanceId).singleResult();
-        assertNull(processInstance);
+        assertThat(processInstance).isNull();
 
         service1.assertIsSatisfied();
         Map<?, ?> m = service2.getExchanges().get(0).getIn().getBody(Map.class);
-        assertEquals("ala", m.get("var1"));
-        assertEquals("var2", m.get("var2"));
+        assertThat(m.get("var1")).isEqualTo("ala");
+        assertThat(m.get("var2")).isEqualTo("var2");
     }
 
 }

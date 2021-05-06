@@ -12,8 +12,8 @@
  */
 package org.flowable.engine.impl.agenda;
 
-import org.flowable.engine.common.api.FlowableException;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
+import org.flowable.common.engine.api.FlowableException;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
 import org.flowable.engine.impl.persistence.entity.ExecutionEntity;
 import org.flowable.engine.impl.persistence.entity.ExecutionEntityManager;
 import org.flowable.engine.impl.util.CommandContextUtil;
@@ -48,10 +48,10 @@ public class DestroyScopeOperation extends AbstractOperation {
 
         // Delete all child executions
         executionEntityManager.deleteChildExecutions(scopeExecution, execution.getDeleteReason(), true);
-        executionEntityManager.deleteExecutionAndRelatedData(scopeExecution, execution.getDeleteReason(), true, null);
+        executionEntityManager.deleteExecutionAndRelatedData(scopeExecution, execution.getDeleteReason(), false, true, null);
 
         if (scopeExecution.isActive()) {
-            CommandContextUtil.getHistoryManager(commandContext).recordActivityEnd(scopeExecution, scopeExecution.getDeleteReason());
+            CommandContextUtil.getActivityInstanceEntityManager(commandContext).recordActivityEnd(scopeExecution, scopeExecution.getDeleteReason());
         }
         executionEntityManager.delete(scopeExecution);
     }

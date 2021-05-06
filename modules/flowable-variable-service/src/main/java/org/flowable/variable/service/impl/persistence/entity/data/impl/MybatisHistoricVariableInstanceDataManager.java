@@ -16,9 +16,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.flowable.engine.common.impl.db.AbstractDataManager;
-import org.flowable.engine.common.impl.db.CachedEntityMatcher;
+import org.flowable.common.engine.impl.cfg.IdGenerator;
+import org.flowable.common.engine.impl.db.AbstractDataManager;
+import org.flowable.common.engine.impl.persistence.cache.CachedEntityMatcher;
 import org.flowable.variable.api.history.HistoricVariableInstance;
+import org.flowable.variable.service.VariableServiceConfiguration;
 import org.flowable.variable.service.impl.HistoricVariableInstanceQueryImpl;
 import org.flowable.variable.service.impl.persistence.entity.HistoricVariableInstanceEntity;
 import org.flowable.variable.service.impl.persistence.entity.HistoricVariableInstanceEntityImpl;
@@ -44,6 +46,12 @@ public class MybatisHistoricVariableInstanceDataManager extends AbstractDataMana
     
     protected CachedEntityMatcher<HistoricVariableInstanceEntity> historicVariableInstanceBySubScopeIdAndScopeTypeMatcher 
         = new HistoricVariableInstanceBySubScopeIdAndScopeTypeMatcher();
+    
+    protected VariableServiceConfiguration variableServiceConfiguration;
+    
+    public MybatisHistoricVariableInstanceDataManager(VariableServiceConfiguration variableServiceConfiguration) {
+        this.variableServiceConfiguration = variableServiceConfiguration;
+    }
     
     @Override
     public Class<? extends HistoricVariableInstanceEntity> getManagedEntityClass() {
@@ -112,5 +120,20 @@ public class MybatisHistoricVariableInstanceDataManager extends AbstractDataMana
     public long findHistoricVariableInstanceCountByNativeQuery(Map<String, Object> parameterMap) {
         return (Long) getDbSqlSession().selectOne("selectHistoricVariableInstanceCountByNativeQuery", parameterMap);
     }
+    
+    @Override
+    public void deleteHistoricVariableInstancesForNonExistingProcessInstances() {
+        getDbSqlSession().delete("bulkDeleteHistoricVariableInstancesForNonExistingProcessInstances", null, HistoricVariableInstanceEntity.class);
+    }
 
+    @Override
+    public void deleteHistoricVariableInstancesForNonExistingCaseInstances() {
+        getDbSqlSession().delete("bulkDeleteHistoricVariableInstancesForNonExistingCaseInstances", null, HistoricVariableInstanceEntity.class);
+    }
+
+    @Override
+    protected IdGenerator getIdGenerator() {
+        return variableServiceConfiguration.getIdGenerator();
+    }
+    
 }

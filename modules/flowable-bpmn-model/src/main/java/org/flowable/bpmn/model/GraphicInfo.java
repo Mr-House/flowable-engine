@@ -25,6 +25,20 @@ public class GraphicInfo {
     protected Boolean expanded;
     protected int xmlRowNumber;
     protected int xmlColumnNumber;
+    
+    public GraphicInfo() {}
+
+    public GraphicInfo(double x, double y, double height, double width) {
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+    }
+
+    public GraphicInfo(double x, double y) {
+        this.x = x;
+        this.y = y;
+    }
 
     public double getX() {
         return x;
@@ -114,7 +128,7 @@ public class GraphicInfo {
     	}
 
     	// only check for elements that support this value
-    	if (null != this.getExpanded() && null != ginfo.getExpanded() && this.getExpanded() != ginfo.getExpanded()) {
+    	if (null != this.getExpanded() && null != ginfo.getExpanded() && !this.getExpanded().equals(ginfo.getExpanded())) {
     		return false;
     	}
     	return true;

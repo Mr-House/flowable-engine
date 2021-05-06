@@ -13,24 +13,36 @@
 
 package org.flowable.form.spring.autodeployment;
 
-import java.io.IOException;
-
-import org.flowable.engine.common.api.FlowableException;
+import org.flowable.common.spring.CommonAutoDeploymentProperties;
 import org.flowable.form.api.FormDeploymentBuilder;
 import org.flowable.form.api.FormRepositoryService;
+import org.flowable.form.engine.FormEngine;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.Resource;
 
 /**
- * Implementation of {@link AutoDeploymentStrategy} that performs a separate deployment for each resource by name.
+ * Implementation of {@link org.flowable.common.spring.AutoDeploymentStrategy AutoDeploymentStrategy}
+ * that performs a separate deployment for each resource by name.
  * 
  * @author Tiese Barrell
+ * @author Joram Barrez
  */
-public class SingleResourceAutoDeploymentStrategy extends AbstractAutoDeploymentStrategy {
+public class SingleResourceAutoDeploymentStrategy extends AbstractFormAutoDeploymentStrategy {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(SingleResourceAutoDeploymentStrategy.class);
 
     /**
      * The deployment mode this strategy handles.
      */
     public static final String DEPLOYMENT_MODE = "single-resource";
+
+    public SingleResourceAutoDeploymentStrategy() {
+    }
+
+    public SingleResourceAutoDeploymentStrategy(CommonAutoDeploymentProperties deploymentProperties) {
+        super(deploymentProperties);
+    }
 
     @Override
     protected String getDeploymentMode() {
@@ -38,7 +50,8 @@ public class SingleResourceAutoDeploymentStrategy extends AbstractAutoDeployment
     }
 
     @Override
-    public void deployResources(final String deploymentNameHint, final Resource[] resources, final FormRepositoryService repositoryService) {
+    protected void deployResourcesInternal(String deploymentNameHint, Resource[] resources, FormEngine engine) {
+        FormRepositoryService repositoryService = engine.getFormRepositoryService();
 
         // Create a separate deployment for each resource using the resource name
 
@@ -46,15 +59,21 @@ public class SingleResourceAutoDeploymentStrategy extends AbstractAutoDeployment
 
             final String resourceName = determineResourceName(resource);
             final FormDeploymentBuilder deploymentBuilder = repositoryService.createDeployment().enableDuplicateFiltering().name(resourceName);
-
+            addResource(resource, resourceName, deploymentBuilder);
             try {
-                deploymentBuilder.addInputStream(resourceName, resource.getInputStream());
 
-            } catch (IOException e) {
-                throw new FlowableException("couldn't auto deploy resource '" + resource + "': " + e.getMessage(), e);
+                deploymentBuilder.deploy();
+
+            } catch (RuntimeException e) {
+                if (isThrowExceptionOnDeploymentFailure()) {
+                    throw e;
+                } else {
+                    LOGGER.warn("Exception while autodeploying form definitions for resource {}. "
+                        + "This exception can be ignored if the root cause indicates a unique constraint violation, "
+                        + "which is typically caused by two (or more) servers booting up at the exact same time and deploying the same definitions. ", resource, e);
+                }
+
             }
-
-            deploymentBuilder.deploy();
         }
     }
 

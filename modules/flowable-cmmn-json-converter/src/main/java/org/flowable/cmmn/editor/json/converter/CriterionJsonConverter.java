@@ -12,6 +12,8 @@
  */
 package org.flowable.cmmn.editor.json.converter;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
@@ -33,6 +35,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
  * @author Tijs Rademakers
+ * @author Joram Barrez
  */
 public class CriterionJsonConverter extends BaseCmmnJsonConverter {
 
@@ -51,6 +54,7 @@ public class CriterionJsonConverter extends BaseCmmnJsonConverter {
         convertersToJsonMap.put(Criterion.class, CriterionJsonConverter.class);
     }
 
+    @Override
     protected String getStencilId(BaseElement baseElement) {
         Criterion criterion = (Criterion) baseElement;
         if (criterion.isEntryCriterion()) {
@@ -61,7 +65,10 @@ public class CriterionJsonConverter extends BaseCmmnJsonConverter {
         return STENCIL_ENTRY_CRITERION;
     }
 
-    protected void convertElementToJson(ObjectNode elementNode, ObjectNode propertiesNode, ActivityProcessor processor, BaseElement baseElement, CmmnModel cmmnModel) {
+    @Override
+    protected void convertElementToJson(ObjectNode elementNode, ObjectNode propertiesNode, ActivityProcessor processor, BaseElement baseElement,
+            CmmnModel cmmnModel, CmmnJsonConverterContext converterContext) {
+
         Criterion criterion = (Criterion) baseElement;
         ArrayNode dockersArrayNode = objectMapper.createArrayNode();
         ObjectNode dockNode = objectMapper.createObjectNode();
@@ -69,25 +76,47 @@ public class CriterionJsonConverter extends BaseCmmnJsonConverter {
 
         GraphicInfo parentGraphicInfo = null;
         Stage planModel = cmmnModel.getPrimaryCase().getPlanModel();
-        if (criterion.getAttachedToRefId().equals(planModel.getId())) {
-            parentGraphicInfo = cmmnModel.getGraphicInfo(planModel.getId());
-            
+        if (criterion.getAttachedToRefId() != null) {
+            if (criterion.getAttachedToRefId().equals(planModel.getId())) {
+                parentGraphicInfo = cmmnModel.getGraphicInfo(planModel.getId());
+            } else {
+                PlanItem parentPlanItem = cmmnModel.findPlanItem(criterion.getAttachedToRefId());
+                parentGraphicInfo = cmmnModel.getGraphicInfo(parentPlanItem.getId());
+            }
         } else {
-            PlanItem parentPlanItem = cmmnModel.findPlanItem(criterion.getAttachedToRefId());
-            parentGraphicInfo = cmmnModel.getGraphicInfo(parentPlanItem.getId());
+            parentGraphicInfo = cmmnModel.getGraphicInfo(planModel.getId());
         }
-        
-        dockNode.put(EDITOR_BOUNDS_X, graphicInfo.getX() - parentGraphicInfo.getX());
-        dockNode.put(EDITOR_BOUNDS_Y, graphicInfo.getY() - parentGraphicInfo.getY());
+
+        BigDecimal parentX = new BigDecimal(parentGraphicInfo.getX());
+        BigDecimal parentY = new BigDecimal(parentGraphicInfo.getY());
+
+        BigDecimal criterionX = new BigDecimal(graphicInfo.getX());
+        BigDecimal criterionWidth = new BigDecimal(graphicInfo.getWidth());
+        BigDecimal criterionXMid = criterionWidth.divide(new BigDecimal(2));
+
+        BigDecimal criterionY = new BigDecimal(graphicInfo.getY());
+        BigDecimal criterionHeight = new BigDecimal(graphicInfo.getHeight());
+        BigDecimal criterionYMid = criterionHeight.divide(new BigDecimal(2));
+
+        BigDecimal xBound = criterionX.add(criterionXMid).subtract(parentX).setScale(0, RoundingMode.HALF_UP);
+        BigDecimal yBound = criterionY.add(criterionYMid).subtract(parentY).setScale(0,RoundingMode.HALF_UP);
+
+        dockNode.put(EDITOR_BOUNDS_X, xBound);
+        dockNode.put(EDITOR_BOUNDS_Y, yBound);
         dockersArrayNode.add(dockNode);
         elementNode.set("dockers", dockersArrayNode);
         elementNode.set("outgoing", getOutgoingArrayNodes(criterion.getId(), cmmnModel));
 
         // set properties
-        putProperty(propertiesNode, "name", criterion.getSentry().getName());
-        putProperty(propertiesNode, "documentation", criterion.getSentry().getDocumentation());
+        putProperty(propertiesNode, PROPERTY_NAME, criterion.getSentry().getName());
+        putProperty(propertiesNode, PROPERTY_DOCUMENTATION, criterion.getSentry().getDocumentation());
+
         if (criterion.getSentry() != null && criterion.getSentry().getSentryIfPart() != null) {
-            putProperty(propertiesNode,"ifpartcondition", criterion.getSentry().getSentryIfPart().getCondition());
+            putProperty(propertiesNode, PROPERTY_IF_PART_CONDITION, criterion.getSentry().getSentryIfPart().getCondition());
+        }
+
+        if (criterion.getSentry() != null && criterion.getSentry().getTriggerMode() != null) {
+            putProperty(propertiesNode, PROPERTY_TRIGGER_MODE, criterion.getSentry().getTriggerMode());
         }
     }
 
@@ -109,7 +138,7 @@ public class CriterionJsonConverter extends BaseCmmnJsonConverter {
 
     @Override
     protected CaseElement convertJsonToElement(JsonNode elementNode, JsonNode modelNode, ActivityProcessor processor,
-                    BaseElement parentElement, Map<String, JsonNode> shapeMap, CmmnModel cmmnModel, CmmnModelIdHelper cmmnModelIdHelper) {
+                    BaseElement parentElement, Map<String, JsonNode> shapeMap, CmmnModel cmmnModel, CmmnJsonConverterContext converterContext, CmmnModelIdHelper cmmnModelIdHelper) {
 
         Criterion criterion = new Criterion();
         String id = CmmnJsonConverterUtil.getElementId(elementNode);
@@ -126,7 +155,18 @@ public class CriterionJsonConverter extends BaseCmmnJsonConverter {
             criterion.setExitCriterion(true);
         }
 
-        criterion.setAttachedToRefId(lookForAttachedRef(elementNode.get(EDITOR_SHAPE_ID).asText(), modelNode.get(EDITOR_CHILD_SHAPES)));
+        String attachedRefId = lookForAttachedRef(elementNode.get(EDITOR_SHAPE_ID).asText(), 
+                elementNode, modelNode.get(EDITOR_CHILD_SHAPES));
+        if (attachedRefId == null && criterion.isExitCriterion() && parentElement instanceof Stage) {
+            // exit sentry is on parent container, plan item model sentries are handled separately
+            Stage parentStage = (Stage) parentElement;
+            if (!parentStage.isPlanModel()) {
+                criterion.setAttachedToRefId(parentStage.getId());
+            }
+
+        } else {
+            criterion.setAttachedToRefId(attachedRefId);
+        }
 
         if (criterion.getAttachedToRefId() != null) {
             String criterionId = CmmnJsonConverterUtil.getElementId(elementNode);
@@ -146,6 +186,7 @@ public class CriterionJsonConverter extends BaseCmmnJsonConverter {
         sentry.setId("sentry" + cmmnModelIdHelper.nextSentryId());
         sentry.setName(CmmnJsonConverterUtil.getPropertyValueAsString(PROPERTY_NAME, elementNode));
         sentry.setDocumentation(CmmnJsonConverterUtil.getPropertyValueAsString(PROPERTY_DOCUMENTATION, elementNode));
+        sentry.setTriggerMode(CmmnJsonConverterUtil.getPropertyValueAsString(PROPERTY_TRIGGER_MODE, elementNode));
 
         String ifPartCondition = CmmnJsonConverterUtil.getPropertyValueAsString(PROPERTY_IF_PART_CONDITION, elementNode);
         if (StringUtils.isNotBlank(ifPartCondition)) {
@@ -158,7 +199,7 @@ public class CriterionJsonConverter extends BaseCmmnJsonConverter {
         criterion.setSentry(sentry);
     }
 
-    private String lookForAttachedRef(String criterionId, JsonNode childShapesNode) {
+    protected String lookForAttachedRef(String criterionId, JsonNode elementNode, JsonNode childShapesNode) {
         String attachedRefId = null;
 
         if (childShapesNode != null) {
@@ -179,7 +220,7 @@ public class CriterionJsonConverter extends BaseCmmnJsonConverter {
                     }
                 }
 
-                attachedRefId = lookForAttachedRef(criterionId, childNode.get(EDITOR_CHILD_SHAPES));
+                attachedRefId = lookForAttachedRef(criterionId, null, childNode.get(EDITOR_CHILD_SHAPES));
 
                 if (attachedRefId != null) {
                     break;

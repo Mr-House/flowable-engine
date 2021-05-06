@@ -12,11 +12,12 @@
  */
 package org.flowable.dmn.engine.impl.audit;
 
-import java.util.Map;
-
 import org.flowable.dmn.api.DecisionExecutionAuditContainer;
+import org.flowable.dmn.api.DecisionServiceExecutionAuditContainer;
+import org.flowable.dmn.api.ExecuteDecisionContext;
 import org.flowable.dmn.engine.impl.util.CommandContextUtil;
 import org.flowable.dmn.model.Decision;
+import org.flowable.dmn.model.DecisionService;
 import org.flowable.dmn.model.DecisionTable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,7 +29,18 @@ public class DecisionExecutionAuditUtil {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DecisionExecutionAuditUtil.class);
 
-    public static DecisionExecutionAuditContainer initializeRuleExecutionAudit(Decision decision, Map<String, Object> inputVariables) {
+    public static DecisionServiceExecutionAuditContainer initializeDecisionServiceExecutionAudit(DecisionService decisionService, ExecuteDecisionContext executeDecisionInfo) {
+
+        if (decisionService == null || decisionService.getId() == null) {
+            LOGGER.error("decision service does not contain key");
+            throw new IllegalArgumentException("decision does not contain decision key");
+        }
+
+        return new DecisionServiceExecutionAuditContainer(decisionService.getId(), decisionService.getName(), executeDecisionInfo.getDecisionVersion(),
+           CommandContextUtil.getDmnEngineConfiguration().isStrictMode(), executeDecisionInfo.getVariables());
+    }
+
+    public static DecisionExecutionAuditContainer initializeDecisionExecutionAudit(Decision decision, ExecuteDecisionContext executeDecisionInfo) {
 
         if (decision == null || decision.getId() == null) {
             LOGGER.error("decision does not contain key");
@@ -42,11 +54,7 @@ public class DecisionExecutionAuditUtil {
             throw new IllegalArgumentException("decision table does not contain a hit policy");
         }
 
-        String decisionKey = decision.getId();
-        String decisionName = decision.getName();
-
-        return new DecisionExecutionAuditContainer(decisionKey, decisionName, decisionTable.getHitPolicy(),
-            CommandContextUtil.getDmnEngineConfiguration().isStrictMode(), inputVariables);
+        return new DecisionExecutionAuditContainer(decision.getId(), decision.getName(), executeDecisionInfo.getDecisionVersion(), 
+                        decisionTable.getHitPolicy(), CommandContextUtil.getDmnEngineConfiguration().isStrictMode(), executeDecisionInfo.getVariables());
     }
-
 }

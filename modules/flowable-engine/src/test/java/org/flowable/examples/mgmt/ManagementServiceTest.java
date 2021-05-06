@@ -12,17 +12,24 @@
  */
 package org.flowable.examples.mgmt;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import org.flowable.common.engine.api.management.TableMetaData;
+import org.flowable.common.engine.impl.interceptor.Command;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
+import org.flowable.common.engine.impl.persistence.entity.PropertyEntity;
 import org.flowable.engine.ManagementService;
-import org.flowable.engine.common.api.management.TableMetaData;
-import org.flowable.engine.common.impl.interceptor.Command;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
 import org.flowable.engine.impl.context.Context;
-import org.flowable.engine.impl.persistence.entity.PropertyEntity;
 import org.flowable.engine.impl.test.PluggableFlowableTestCase;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Test case for the various operations of the {@link ManagementService}
@@ -30,8 +37,12 @@ import org.flowable.engine.impl.test.PluggableFlowableTestCase;
  * @author Tom Baeyens
  * @author Joram Barrez
  */
+@DisabledIfSystemProperty(named = "disableWhen", matches = "cockroachdb")
 public class ManagementServiceTest extends PluggableFlowableTestCase {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(ManagementServiceTest.class);
+
+    @Test
     public void testTableCount() {
         Map<String, Long> tableCount = managementService.getTableCount();
 
@@ -50,31 +61,32 @@ public class ManagementServiceTest extends PluggableFlowableTestCase {
             
         });
 
-        assertEquals(new Long(10), tableCount.get(tablePrefix + "ACT_GE_PROPERTY"));
-        assertEquals(new Long(0), tableCount.get(tablePrefix + "ACT_GE_BYTEARRAY"));
-        assertEquals(new Long(0), tableCount.get(tablePrefix + "ACT_RE_DEPLOYMENT"));
-        assertEquals(new Long(0), tableCount.get(tablePrefix + "ACT_RU_EXECUTION"));
-        assertEquals(new Long(0), tableCount.get(tablePrefix + "ACT_ID_GROUP"));
-        assertEquals(new Long(0), tableCount.get(tablePrefix + "ACT_ID_MEMBERSHIP"));
-        assertEquals(new Long(0), tableCount.get(tablePrefix + "ACT_ID_USER"));
-        assertEquals(new Long(0), tableCount.get(tablePrefix + "ACT_RE_PROCDEF"));
-        assertEquals(new Long(0), tableCount.get(tablePrefix + "ACT_RU_TASK"));
-        assertEquals(new Long(0), tableCount.get(tablePrefix + "ACT_RU_IDENTITYLINK"));
+        assertThat(tableCount).containsEntry(tablePrefix + "ACT_GE_PROPERTY", Long.valueOf(13));
+        assertThat(tableCount.get(tablePrefix + "ACT_GE_BYTEARRAY")).isZero();
+        assertThat(tableCount.get(tablePrefix + "ACT_RE_DEPLOYMENT")).isZero();
+        assertThat(tableCount.get(tablePrefix + "ACT_RU_EXECUTION")).isZero();
+        assertThat(tableCount.get(tablePrefix + "ACT_ID_GROUP")).isZero();
+        assertThat(tableCount.get(tablePrefix + "ACT_ID_MEMBERSHIP")).isZero();
+        assertThat(tableCount.get(tablePrefix + "ACT_ID_USER")).isZero();
+        assertThat(tableCount.get(tablePrefix + "ACT_RE_PROCDEF")).isZero();
+        assertThat(tableCount.get(tablePrefix + "ACT_RU_TASK")).isZero();
+        assertThat(tableCount.get(tablePrefix + "ACT_RU_IDENTITYLINK")).isZero();
     }
 
+    @Test
     public void testGetTableMetaData() {
 
         String tablePrefix = processEngineConfiguration.getDatabaseTablePrefix();
 
         TableMetaData tableMetaData = managementService.getTableMetaData(tablePrefix + "ACT_RU_TASK");
-        assertEquals(tableMetaData.getColumnNames().size(), tableMetaData.getColumnTypes().size());
-        assertEquals(27, tableMetaData.getColumnNames().size());
-
+        assertThat(tableMetaData.getColumnTypes()).hasSameSizeAs(tableMetaData.getColumnNames());
+        assertThat(tableMetaData.getColumnNames()).hasSize(30);
+ 
         int assigneeIndex = tableMetaData.getColumnNames().indexOf("ASSIGNEE_");
         int createTimeIndex = tableMetaData.getColumnNames().indexOf("CREATE_TIME_");
 
-        assertTrue(assigneeIndex >= 0);
-        assertTrue(createTimeIndex >= 0);
+        assertThat(assigneeIndex).isGreaterThanOrEqualTo(0);
+        assertThat(createTimeIndex).isGreaterThanOrEqualTo(0);
 
         assertOneOf(new String[] { "VARCHAR", "NVARCHAR2", "nvarchar", "NVARCHAR" }, tableMetaData.getColumnTypes().get(assigneeIndex));
         assertOneOf(new String[] { "TIMESTAMP", "TIMESTAMP(6)", "datetime", "DATETIME" }, tableMetaData.getColumnTypes().get(createTimeIndex));

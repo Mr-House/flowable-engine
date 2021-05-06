@@ -12,7 +12,6 @@
  */
 package org.flowable.engine.impl.persistence.entity.data.impl;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -69,43 +68,13 @@ public class MybatisHistoricProcessInstanceDataManager extends AbstractProcessDa
     @Override
     @SuppressWarnings("unchecked")
     public List<HistoricProcessInstance> findHistoricProcessInstancesByQueryCriteria(HistoricProcessInstanceQueryImpl historicProcessInstanceQuery) {
-        return getDbSqlSession().selectList("selectHistoricProcessInstancesByQueryCriteria", historicProcessInstanceQuery);
+        return getDbSqlSession().selectList("selectHistoricProcessInstancesByQueryCriteria", historicProcessInstanceQuery, getManagedEntityClass());
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public List<HistoricProcessInstance> findHistoricProcessInstancesAndVariablesByQueryCriteria(HistoricProcessInstanceQueryImpl historicProcessInstanceQuery) {
-        // paging doesn't work for combining process instances and variables
-        // due to an outer join, so doing it in-memory
-
-        int firstResult = historicProcessInstanceQuery.getFirstResult();
-        int maxResults = historicProcessInstanceQuery.getMaxResults();
-
-        // setting max results, limit to 20000 results for performance reasons
-        if (historicProcessInstanceQuery.getProcessInstanceVariablesLimit() != null) {
-            historicProcessInstanceQuery.setMaxResults(historicProcessInstanceQuery.getProcessInstanceVariablesLimit());
-        } else {
-            historicProcessInstanceQuery.setMaxResults(getProcessEngineConfiguration().getHistoricProcessInstancesQueryLimit());
-        }
-        historicProcessInstanceQuery.setFirstResult(0);
-
-        List<HistoricProcessInstance> instanceList = getDbSqlSession().selectListWithRawParameterNoCacheCheck("selectHistoricProcessInstancesWithVariablesByQueryCriteria", historicProcessInstanceQuery);
-
-        if (instanceList != null && !instanceList.isEmpty()) {
-            if (firstResult > 0) {
-                if (firstResult <= instanceList.size()) {
-                    int toIndex = firstResult + Math.min(maxResults, instanceList.size() - firstResult);
-                    return instanceList.subList(firstResult, toIndex);
-                } else {
-                    return Collections.EMPTY_LIST;
-                }
-            } else {
-                int toIndex = maxResults > 0 ?  Math.min(maxResults, instanceList.size()) : instanceList.size();
-                return instanceList.subList(0, toIndex);
-            }
-        }
-
-        return instanceList;
+        return getDbSqlSession().selectList("selectHistoricProcessInstancesWithVariablesByQueryCriteria", historicProcessInstanceQuery, getManagedEntityClass());
     }
 
     @Override
@@ -117,6 +86,11 @@ public class MybatisHistoricProcessInstanceDataManager extends AbstractProcessDa
     @Override
     public long findHistoricProcessInstanceCountByNativeQuery(Map<String, Object> parameterMap) {
         return (Long) getDbSqlSession().selectOne("selectHistoricProcessInstanceCountByNativeQuery", parameterMap);
+    }
+
+    @Override
+    public void deleteHistoricProcessInstances(HistoricProcessInstanceQueryImpl historicProcessInstanceQuery) {
+        getDbSqlSession().delete("bulkDeleteHistoricProcessInstances", historicProcessInstanceQuery, HistoricProcessInstanceEntityImpl.class);
     }
 
 }

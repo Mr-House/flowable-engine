@@ -16,9 +16,9 @@ package org.flowable.rest.service.api.identity;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.flowable.engine.common.api.FlowableIllegalArgumentException;
+import org.flowable.common.engine.api.FlowableIllegalArgumentException;
+import org.flowable.common.rest.exception.FlowableConflictException;
 import org.flowable.idm.api.Group;
-import org.flowable.rest.exception.FlowableConflictException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -55,10 +55,8 @@ public class GroupMembershipCollectionResource extends BaseGroupResource {
             throw new FlowableIllegalArgumentException("UserId cannot be null.");
         }
 
-        // Check if user is member of group since API doesn't return typed
-        // exception
+        // Check if user is member of group since API does not return typed exception
         if (identityService.createUserQuery().memberOfGroup(group.getId()).userId(memberShip.getUserId()).count() > 0) {
-
             throw new FlowableConflictException("User '" + memberShip.getUserId() + "' is already part of group '" + group.getId() + "'.");
         }
 

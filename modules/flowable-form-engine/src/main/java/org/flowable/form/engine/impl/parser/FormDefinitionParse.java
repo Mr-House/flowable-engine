@@ -14,24 +14,25 @@ package org.flowable.form.engine.impl.parser;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.io.IOUtils;
+import org.flowable.common.engine.api.FlowableException;
+import org.flowable.common.engine.impl.util.io.InputStreamSource;
+import org.flowable.common.engine.impl.util.io.StreamSource;
+import org.flowable.common.engine.impl.util.io.StringStreamSource;
+import org.flowable.common.engine.impl.util.io.UrlStreamSource;
 import org.flowable.editor.form.converter.FormJsonConverter;
-import org.flowable.engine.common.api.FlowableException;
-import org.flowable.engine.common.impl.util.io.InputStreamSource;
-import org.flowable.engine.common.impl.util.io.StreamSource;
-import org.flowable.engine.common.impl.util.io.StringStreamSource;
-import org.flowable.engine.common.impl.util.io.UrlStreamSource;
 import org.flowable.form.engine.FormEngineConfiguration;
 import org.flowable.form.engine.impl.io.ResourceStreamSource;
 import org.flowable.form.engine.impl.persistence.entity.FormDefinitionEntity;
 import org.flowable.form.engine.impl.persistence.entity.FormDeploymentEntity;
 import org.flowable.form.engine.impl.util.CommandContextUtil;
-import org.flowable.form.model.FormModel;
+import org.flowable.form.model.SimpleFormModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,7 +53,7 @@ public class FormDefinitionParse {
     protected StreamSource streamSource;
     protected String sourceSystemId;
 
-    protected FormModel formModel;
+    protected SimpleFormModel formModel;
 
     protected String targetNamespace;
 
@@ -71,16 +72,9 @@ public class FormDefinitionParse {
         String encoding = formEngineConfig.getXmlEncoding();
         FormJsonConverter converter = new FormJsonConverter();
 
-        try {
-            InputStreamReader in = null;
-            if (encoding != null) {
-                in = new InputStreamReader(streamSource.getInputStream(), encoding);
-            } else {
-                in = new InputStreamReader(streamSource.getInputStream());
-            }
-
+        try (InputStreamReader in = newInputStreamReaderForSource(encoding)) {
             String formJson = IOUtils.toString(in);
-            formModel = converter.convertToFormModel(formJson, null, 1);
+            formModel = converter.convertToFormModel(formJson);
 
             if (formModel != null && formModel.getFields() != null) {
                 FormDefinitionEntity formDefinitionEntity = CommandContextUtil.getFormEngineConfiguration().getFormDefinitionEntityManager().create();
@@ -88,7 +82,6 @@ public class FormDefinitionParse {
                 formDefinitionEntity.setName(formModel.getName());
                 formDefinitionEntity.setResourceName(name);
                 formDefinitionEntity.setDeploymentId(deployment.getId());
-                formDefinitionEntity.setParentDeploymentId(deployment.getParentDeploymentId());
                 formDefinitionEntity.setDescription(formModel.getDescription());
                 formDefinitions.add(formDefinitionEntity);
             }
@@ -96,6 +89,14 @@ public class FormDefinitionParse {
             throw new FlowableException("Error parsing form definition JSON", e);
         }
         return this;
+    }
+
+    private InputStreamReader newInputStreamReaderForSource(String encoding) throws UnsupportedEncodingException {
+        if (encoding != null) {
+            return new InputStreamReader(streamSource.getInputStream(), encoding);
+        } else {
+            return new InputStreamReader(streamSource.getInputStream());
+        }
     }
 
     public FormDefinitionParse name(String name) {
@@ -179,11 +180,11 @@ public class FormDefinitionParse {
         this.deployment = deployment;
     }
 
-    public FormModel getFormModel() {
+    public SimpleFormModel getFormModel() {
         return formModel;
     }
 
-    public void setFormModel(FormModel formModel) {
+    public void setFormModel(SimpleFormModel formModel) {
         this.formModel = formModel;
     }
 }

@@ -17,14 +17,14 @@ import java.io.Serializable;
 import java.util.Date;
 import java.util.List;
 
-import org.flowable.engine.common.api.FlowableIllegalArgumentException;
-import org.flowable.engine.common.impl.AbstractQuery;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
-import org.flowable.engine.common.impl.interceptor.CommandExecutor;
+import org.flowable.common.engine.api.FlowableIllegalArgumentException;
+import org.flowable.common.engine.api.scope.ScopeTypes;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
+import org.flowable.common.engine.impl.interceptor.CommandExecutor;
+import org.flowable.common.engine.impl.query.AbstractQuery;
 import org.flowable.job.api.DeadLetterJobQuery;
 import org.flowable.job.api.Job;
-import org.flowable.job.service.impl.util.CommandContextUtil;
-import org.flowable.variable.api.type.VariableScopeType;
+import org.flowable.job.service.JobServiceConfiguration;
 
 /**
  * @author Joram Barrez
@@ -33,18 +33,28 @@ import org.flowable.variable.api.type.VariableScopeType;
 public class DeadLetterJobQueryImpl extends AbstractQuery<DeadLetterJobQuery, Job> implements DeadLetterJobQuery, Serializable {
 
     private static final long serialVersionUID = 1L;
+    
+    protected JobServiceConfiguration jobServiceConfiguration;
+    
     protected String id;
     protected String processInstanceId;
     protected String executionId;
     protected String handlerType;
     protected String processDefinitionId;
+    protected String category;
+    protected String categoryLike;
+    protected String elementId;
+    protected String elementName;
     protected String scopeId;
     protected String subScopeId;
     protected String scopeType;
+    protected boolean withoutScopeType;
     protected String scopeDefinitionId;
+    protected String correlationId;
     protected boolean executable;
     protected boolean onlyTimers;
     protected boolean onlyMessages;
+    protected boolean onlyExternalWorkers;
     protected Date duedateHigherThan;
     protected Date duedateLowerThan;
     protected Date duedateHigherThanOrEqual;
@@ -58,12 +68,14 @@ public class DeadLetterJobQueryImpl extends AbstractQuery<DeadLetterJobQuery, Jo
     public DeadLetterJobQueryImpl() {
     }
 
-    public DeadLetterJobQueryImpl(CommandContext commandContext) {
+    public DeadLetterJobQueryImpl(CommandContext commandContext, JobServiceConfiguration jobServiceConfiguration) {
         super(commandContext);
+        this.jobServiceConfiguration = jobServiceConfiguration;
     }
 
-    public DeadLetterJobQueryImpl(CommandExecutor commandExecutor) {
+    public DeadLetterJobQueryImpl(CommandExecutor commandExecutor, JobServiceConfiguration jobServiceConfiguration) {
         super(commandExecutor);
+        this.jobServiceConfiguration = jobServiceConfiguration;
     }
 
     @Override
@@ -94,6 +106,42 @@ public class DeadLetterJobQueryImpl extends AbstractQuery<DeadLetterJobQuery, Jo
     }
     
     @Override
+    public DeadLetterJobQueryImpl category(String category) {
+        if (category == null) {
+            throw new FlowableIllegalArgumentException("Provided category is null");
+        }
+        this.category = category;
+        return this;
+    }
+    
+    @Override
+    public DeadLetterJobQueryImpl categoryLike(String categoryLike) {
+        if (categoryLike == null) {
+            throw new FlowableIllegalArgumentException("Provided categoryLike is null");
+        }
+        this.categoryLike = categoryLike;
+        return this;
+    }
+    
+    @Override
+    public DeadLetterJobQueryImpl elementId(String elementId) {
+        if (elementId == null) {
+            throw new FlowableIllegalArgumentException("Provided element id is null");
+        }
+        this.elementId = elementId;
+        return this;
+    }
+    
+    @Override
+    public DeadLetterJobQueryImpl elementName(String elementName) {
+        if (elementName == null) {
+            throw new FlowableIllegalArgumentException("Provided element name is null");
+        }
+        this.elementName = elementName;
+        return this;
+    }
+    
+    @Override
     public DeadLetterJobQueryImpl scopeId(String scopeId) {
         if (scopeId == null) {
             throw new FlowableIllegalArgumentException("Provided scope id is null");
@@ -119,7 +167,13 @@ public class DeadLetterJobQueryImpl extends AbstractQuery<DeadLetterJobQuery, Jo
         this.scopeType = scopeType;
         return this;
     }
-    
+
+    @Override
+    public DeadLetterJobQueryImpl withoutScopeType() {
+        this.withoutScopeType = true;
+        return this;
+    }
+
     @Override
     public DeadLetterJobQueryImpl scopeDefinitionId(String scopeDefinitionId) {
         if (scopeDefinitionId == null) {
@@ -135,7 +189,7 @@ public class DeadLetterJobQueryImpl extends AbstractQuery<DeadLetterJobQuery, Jo
             throw new FlowableIllegalArgumentException("Provided case instance id is null");
         }
         scopeId(caseInstanceId);
-        scopeType(VariableScopeType.CMMN);
+        scopeType(ScopeTypes.CMMN);
         return this;
     }
     
@@ -145,7 +199,7 @@ public class DeadLetterJobQueryImpl extends AbstractQuery<DeadLetterJobQuery, Jo
             throw new FlowableIllegalArgumentException("Provided case definition id is null");
         }
         scopeDefinitionId(caseDefinitionId);
-        scopeType(VariableScopeType.CMMN);
+        scopeType(ScopeTypes.CMMN);
         return this;
     }
     
@@ -155,7 +209,16 @@ public class DeadLetterJobQueryImpl extends AbstractQuery<DeadLetterJobQuery, Jo
             throw new FlowableIllegalArgumentException("Provided plan item instance id is null");
         }
         subScopeId(planItemInstanceId);
-        scopeType(VariableScopeType.CMMN);
+        scopeType(ScopeTypes.CMMN);
+        return this;
+    }
+
+    @Override
+    public DeadLetterJobQuery correlationId(String correlationId) {
+        if (correlationId == null) {
+            throw new FlowableIllegalArgumentException("Provided correlationId is null");
+        }
+        this.correlationId = correlationId;
         return this;
     }
 
@@ -188,6 +251,10 @@ public class DeadLetterJobQueryImpl extends AbstractQuery<DeadLetterJobQuery, Jo
         if (onlyMessages) {
             throw new FlowableIllegalArgumentException("Cannot combine onlyTimers() with onlyMessages() in the same query");
         }
+
+        if (onlyExternalWorkers) {
+            throw new FlowableIllegalArgumentException("Cannot combine onlyExternalWorkers() with onlyMessages() in the same query");
+        }
         this.onlyTimers = true;
         return this;
     }
@@ -197,9 +264,29 @@ public class DeadLetterJobQueryImpl extends AbstractQuery<DeadLetterJobQuery, Jo
         if (onlyTimers) {
             throw new FlowableIllegalArgumentException("Cannot combine onlyTimers() with onlyMessages() in the same query");
         }
+
+        if (onlyExternalWorkers) {
+            throw new FlowableIllegalArgumentException("Cannot combine onlyExternalWorkers() with onlyMessages() in the same query");
+        }
+
         this.onlyMessages = true;
         return this;
     }
+
+    @Override
+    public DeadLetterJobQueryImpl externalWorkers() {
+        if (onlyMessages) {
+            throw new FlowableIllegalArgumentException("Cannot combine onlyMessages() with onlyExternalWorkers() in the same query");
+        }
+
+        if (onlyTimers) {
+            throw new FlowableIllegalArgumentException("Cannot combine onlyTimers() with onlyExternalWorkers() in the same query");
+        }
+
+        this.onlyTimers = true;
+        return this;
+    }
+
 
     @Override
     public DeadLetterJobQueryImpl duedateHigherThan(Date date) {
@@ -237,7 +324,7 @@ public class DeadLetterJobQueryImpl extends AbstractQuery<DeadLetterJobQuery, Jo
     @Override
     public DeadLetterJobQueryImpl jobTenantId(String tenantId) {
         if (tenantId == null) {
-            throw new FlowableIllegalArgumentException("Provided tentant id is null");
+            throw new FlowableIllegalArgumentException("Provided tenant id is null");
         }
         this.tenantId = tenantId;
         return this;
@@ -246,7 +333,7 @@ public class DeadLetterJobQueryImpl extends AbstractQuery<DeadLetterJobQuery, Jo
     @Override
     public DeadLetterJobQueryImpl jobTenantIdLike(String tenantIdLike) {
         if (tenantIdLike == null) {
-            throw new FlowableIllegalArgumentException("Provided tentant id is null");
+            throw new FlowableIllegalArgumentException("Provided tenant id is null");
         }
         this.tenantIdLike = tenantIdLike;
         return this;
@@ -263,6 +350,11 @@ public class DeadLetterJobQueryImpl extends AbstractQuery<DeadLetterJobQuery, Jo
     @Override
     public DeadLetterJobQuery orderByJobDuedate() {
         return orderBy(JobQueryProperty.DUEDATE);
+    }
+
+    @Override
+    public DeadLetterJobQuery orderByJobCreateTime() {
+        return orderBy(JobQueryProperty.CREATE_TIME);
     }
 
     @Override
@@ -294,14 +386,12 @@ public class DeadLetterJobQueryImpl extends AbstractQuery<DeadLetterJobQuery, Jo
 
     @Override
     public long executeCount(CommandContext commandContext) {
-        checkQueryOk();
-        return CommandContextUtil.getDeadLetterJobEntityManager(commandContext).findJobCountByQueryCriteria(this);
+        return jobServiceConfiguration.getDeadLetterJobEntityManager().findJobCountByQueryCriteria(this);
     }
 
     @Override
     public List<Job> executeList(CommandContext commandContext) {
-        checkQueryOk();
-        return CommandContextUtil.getDeadLetterJobEntityManager(commandContext).findJobsByQueryCriteria(this);
+        return jobServiceConfiguration.getDeadLetterJobEntityManager().findJobsByQueryCriteria(this);
     }
 
     // getters //////////////////////////////////////////
@@ -323,7 +413,7 @@ public class DeadLetterJobQueryImpl extends AbstractQuery<DeadLetterJobQuery, Jo
     }
 
     public Date getNow() {
-        return CommandContextUtil.getJobServiceConfiguration().getClock().getCurrentTime();
+        return jobServiceConfiguration.getClock().getCurrentTime();
     }
 
     public boolean isWithException() {
@@ -346,16 +436,28 @@ public class DeadLetterJobQueryImpl extends AbstractQuery<DeadLetterJobQuery, Jo
         return withoutTenantId;
     }
 
-    public static long getSerialversionuid() {
-        return serialVersionUID;
-    }
-
     public String getId() {
         return id;
     }
 
     public String getProcessDefinitionId() {
         return processDefinitionId;
+    }
+    
+    public String getCategory() {
+        return category;
+    }
+
+    public String getCategoryLike() {
+        return categoryLike;
+    }
+
+    public String getElementId() {
+        return elementId;
+    }
+
+    public String getElementName() {
+        return elementName;
     }
     
     public String getScopeId() {
@@ -370,8 +472,16 @@ public class DeadLetterJobQueryImpl extends AbstractQuery<DeadLetterJobQuery, Jo
         return scopeType;
     }
 
+    public boolean isWithoutScopeType() {
+        return withoutScopeType;
+    }
+
     public String getScopeDefinitionId() {
         return scopeDefinitionId;
+    }
+
+    public String getCorrelationId() {
+        return correlationId;
     }
 
     public boolean isOnlyTimers() {
@@ -380,6 +490,14 @@ public class DeadLetterJobQueryImpl extends AbstractQuery<DeadLetterJobQuery, Jo
 
     public boolean isOnlyMessages() {
         return onlyMessages;
+    }
+
+    public boolean isExecutable() {
+        return executable;
+    }
+
+    public boolean isOnlyExternalWorkers() {
+        return onlyExternalWorkers;
     }
 
     public Date getDuedateHigherThan() {
@@ -397,5 +515,4 @@ public class DeadLetterJobQueryImpl extends AbstractQuery<DeadLetterJobQuery, Jo
     public Date getDuedateLowerThanOrEqual() {
         return duedateLowerThanOrEqual;
     }
-
 }

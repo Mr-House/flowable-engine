@@ -18,7 +18,7 @@ import javax.naming.Context;
 import javax.naming.NamingException;
 import javax.naming.directory.InitialDirContext;
 
-import org.flowable.engine.common.api.FlowableException;
+import org.flowable.common.engine.api.FlowableException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,8 +53,8 @@ public class LDAPConnectionUtil {
         try {
             context = new InitialDirContext(properties);
         } catch (NamingException e) {
-            LOGGER.warn("Could not create InitialDirContext for LDAP connection : {}", e.getMessage());
-            throw new FlowableException("Could not create InitialDirContext for LDAP connection : " + e.getMessage(), e);
+            LOGGER.warn("Could not create InitialDirContext for LDAP connection: {}", e.getMessage());
+            throw new FlowableException("Could not create InitialDirContext for LDAP connection: " + e.getMessage(), e);
         }
         return context;
     }

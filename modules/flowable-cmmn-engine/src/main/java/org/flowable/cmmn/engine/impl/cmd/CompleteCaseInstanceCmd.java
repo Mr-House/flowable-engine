@@ -14,8 +14,8 @@ package org.flowable.cmmn.engine.impl.cmd;
 
 import org.flowable.cmmn.engine.impl.persistence.entity.CaseInstanceEntity;
 import org.flowable.cmmn.engine.impl.util.CommandContextUtil;
-import org.flowable.engine.common.api.FlowableIllegalArgumentException;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
+import org.flowable.common.engine.api.FlowableIllegalArgumentException;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
 
 /**
  * @author Joram Barrez
@@ -28,7 +28,7 @@ public class CompleteCaseInstanceCmd extends AbstractNeedsCaseInstanceCmd {
     
     @Override
     protected void internalExecute(CommandContext commandContext, CaseInstanceEntity caseInstanceEntity) {
-        if (!caseInstanceEntity.isCompleteable()) {
+        if (!caseInstanceEntity.isCompletable()) {
             throw new FlowableIllegalArgumentException("Can only complete a case instance which is marked as completeable. Check if there are active plan item instances.");
         }
         CommandContextUtil.getAgenda(commandContext).planCompleteCaseInstanceOperation(caseInstanceEntity);

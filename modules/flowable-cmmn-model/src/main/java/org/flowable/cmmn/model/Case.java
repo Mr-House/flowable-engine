@@ -12,22 +12,23 @@
  */
 package org.flowable.cmmn.model;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
-public class Case extends CmmnElement {
+public class Case extends CmmnElement implements HasLifecycleListeners {
 
     protected String name;
     protected String initiatorVariableName;
     protected Stage planModel;
+    protected String startEventType;
+    protected List<String> candidateStarterUsers = new ArrayList<>();
+    protected List<String> candidateStarterGroups = new ArrayList<>();
     protected Map<String, CaseElement> allCaseElements = new HashMap<>();
-
-    public Stage findStage(String stageId) {
-        if (planModel.getId().equals(stageId)) {
-            return planModel;
-        }
-        return (Stage) planModel.findPlanItemDefinition(stageId);
-    }
+    protected List<FlowableListener> lifecycleListeners = new ArrayList<>();
+    /** Having a reactivation case listener marks the case eligible for reactivation once completed. */
+    protected ReactivateEventListener reactivateEventListener;
 
     public String getName() {
         return name;
@@ -53,6 +54,30 @@ public class Case extends CmmnElement {
         this.planModel = planModel;
     }
 
+    public String getStartEventType() {
+        return startEventType;
+    }
+
+    public void setStartEventType(String startEventType) {
+        this.startEventType = startEventType;
+    }
+
+    public List<String> getCandidateStarterUsers() {
+        return candidateStarterUsers;
+    }
+
+    public void setCandidateStarterUsers(List<String> candidateStarterUsers) {
+        this.candidateStarterUsers = candidateStarterUsers;
+    }
+
+    public List<String> getCandidateStarterGroups() {
+        return candidateStarterGroups;
+    }
+
+    public void setCandidateStarterGroups(List<String> candidateStarterGroups) {
+        this.candidateStarterGroups = candidateStarterGroups;
+    }
+    
     public Map<String, CaseElement> getAllCaseElements() {
         return allCaseElements;
     }
@@ -61,4 +86,21 @@ public class Case extends CmmnElement {
         this.allCaseElements = allCaseElements;
     }
 
+    public ReactivateEventListener getReactivateEventListener() {
+        return reactivateEventListener;
+    }
+
+    public void setReactivateEventListener(ReactivateEventListener reactivateEventListener) {
+        this.reactivateEventListener = reactivateEventListener;
+    }
+
+    @Override
+    public List<FlowableListener> getLifecycleListeners() {
+        return this.lifecycleListeners;
+    }
+
+    @Override
+    public void setLifecycleListeners(List<FlowableListener> lifecycleListeners) {
+        this.lifecycleListeners = lifecycleListeners;
+    }
 }

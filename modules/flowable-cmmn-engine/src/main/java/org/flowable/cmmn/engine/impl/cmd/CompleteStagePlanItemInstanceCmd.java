@@ -12,28 +12,46 @@
  */
 package org.flowable.cmmn.engine.impl.cmd;
 
+import java.util.Map;
+
 import org.flowable.cmmn.api.runtime.PlanItemDefinitionType;
 import org.flowable.cmmn.engine.impl.persistence.entity.PlanItemInstanceEntity;
 import org.flowable.cmmn.engine.impl.util.CommandContextUtil;
-import org.flowable.engine.common.api.FlowableIllegalArgumentException;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
+import org.flowable.common.engine.api.FlowableIllegalArgumentException;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
+import org.flowable.form.api.FormInfo;
 
 /**
  * @author Joram Barrez
  */
 public class CompleteStagePlanItemInstanceCmd extends AbstractNeedsPlanItemInstanceCmd {
 
+    protected boolean force;
+
     public CompleteStagePlanItemInstanceCmd(String planItemInstanceId) {
         super(planItemInstanceId);
     }
-    
+
+    public CompleteStagePlanItemInstanceCmd(String planItemInstanceId, boolean force) {
+        super(planItemInstanceId);
+        this.force = force;
+    }
+
+    public CompleteStagePlanItemInstanceCmd(String planItemInstanceId, Map<String, Object> variables,
+            Map<String, Object> formVariables, String formOutcome, FormInfo formInfo,
+            Map<String, Object> localVariables, Map<String, Object> transientVariables, boolean force) {
+        
+        super(planItemInstanceId, variables, formVariables, formOutcome, formInfo, localVariables, transientVariables);
+        this.force = force;
+    }
+
     @Override
     protected void internalExecute(CommandContext commandContext, PlanItemInstanceEntity planItemInstanceEntity) {
         if (!PlanItemDefinitionType.STAGE.equals(planItemInstanceEntity.getPlanItemDefinitionType())) {
             throw new FlowableIllegalArgumentException("Can only complete plan item instances of type stage. Type is " + planItemInstanceEntity.getPlanItemDefinitionType());
         }
-        if (!planItemInstanceEntity.isCompleteable()) {
-            throw new FlowableIllegalArgumentException("Can only complete a stage plan item instance that is marked as completeable (there might still be active plan item instance).");
+        if (!force && !planItemInstanceEntity.isCompletable()) { // if force is true, ignore the completable flag
+            throw new FlowableIllegalArgumentException("Can only complete a stage plan item instance that is marked as completable (there might still be active plan item instance).");
         }
         CommandContextUtil.getAgenda(commandContext).planCompletePlanItemInstanceOperation(planItemInstanceEntity);
     }

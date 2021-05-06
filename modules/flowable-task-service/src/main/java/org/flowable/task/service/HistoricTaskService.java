@@ -12,9 +12,16 @@
  */
 package org.flowable.task.service;
 
+import java.util.Date;
 import java.util.List;
 
+import org.flowable.common.engine.impl.AbstractEngineConfiguration;
+import org.flowable.common.engine.impl.interceptor.CommandExecutor;
+import org.flowable.task.api.TaskInfo;
 import org.flowable.task.api.history.HistoricTaskInstance;
+import org.flowable.task.api.history.HistoricTaskLogEntryBuilder;
+import org.flowable.task.api.history.HistoricTaskLogEntryQuery;
+import org.flowable.task.api.history.NativeHistoricTaskLogEntryQuery;
 import org.flowable.task.service.impl.HistoricTaskInstanceQueryImpl;
 import org.flowable.task.service.impl.persistence.entity.HistoricTaskInstanceEntity;
 import org.flowable.task.service.impl.persistence.entity.TaskEntity;
@@ -39,14 +46,48 @@ public interface HistoricTaskService {
     
     HistoricTaskInstanceEntity createHistoricTask(TaskEntity taskEntity);
     
+    void updateHistoricTask(HistoricTaskInstanceEntity historicTaskInstanceEntity, boolean fireUpdateEvent);
+    
     void insertHistoricTask(HistoricTaskInstanceEntity historicTaskInstanceEntity, boolean fireCreateEvent);
     
     void deleteHistoricTask(HistoricTaskInstanceEntity HistoricTaskInstance);
     
     HistoricTaskInstanceEntity recordTaskCreated(TaskEntity task);
     
-    HistoricTaskInstanceEntity recordTaskEnd(TaskEntity task, String deleteReason);
+    HistoricTaskInstanceEntity recordTaskEnd(TaskEntity task, String deleteReason, Date endTime);
     
-    HistoricTaskInstanceEntity recordTaskInfoChange(TaskEntity taskEntity);
+    HistoricTaskInstanceEntity recordTaskInfoChange(TaskEntity taskEntity, Date changeTime, AbstractEngineConfiguration engineConfiguration);
+
+    void deleteHistoricTaskLogEntry(long taskLogNumber);
+
+    void createHistoricTaskLogEntry(HistoricTaskLogEntryBuilder historicTaskLogEntryBuilder);
+
+    /**
+     * Log new entry to the task log.
+     *
+     * @param taskInfo task to which add log entry
+     * @param logEntryType log entry type
+     * @param data log entry data
+     */
+    void addHistoricTaskLogEntry(TaskInfo taskInfo, String logEntryType, String data);
+
+    HistoricTaskLogEntryQuery createHistoricTaskLogEntryQuery(CommandExecutor commandExecutor);
+
+    NativeHistoricTaskLogEntryQuery createNativeHistoricTaskLogEntryQuery(CommandExecutor commandExecutor);
+
+    void deleteHistoricTaskLogEntriesForProcessDefinition(String processDefinitionId);
+
+    void deleteHistoricTaskLogEntriesForScopeDefinition(String scopeType, String scopeDefinitionId);
+
+    void deleteHistoricTaskLogEntriesForTaskId(String taskId);
     
+    void deleteHistoricTaskLogEntriesForNonExistingProcessInstances();
+    
+    void deleteHistoricTaskLogEntriesForNonExistingCaseInstances();
+    
+    void deleteHistoricTaskInstances(HistoricTaskInstanceQueryImpl historicTaskInstanceQuery);
+
+    void deleteHistoricTaskInstancesForNonExistingProcessInstances();
+    
+    void deleteHistoricTaskInstancesForNonExistingCaseInstances();
 }

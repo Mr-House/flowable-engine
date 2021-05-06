@@ -33,9 +33,9 @@ import org.apache.commons.mail.EmailException;
 import org.apache.commons.mail.HtmlEmail;
 import org.apache.commons.mail.MultiPartEmail;
 import org.apache.commons.mail.SimpleEmail;
-import org.flowable.engine.cfg.MailServerInfo;
+import org.flowable.common.engine.api.delegate.Expression;
+import org.flowable.common.engine.impl.cfg.mail.MailServerInfo;
 import org.flowable.engine.delegate.DelegateExecution;
-import org.flowable.engine.common.api.delegate.Expression;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -265,6 +265,7 @@ public class MailActivityBehavior extends AbstractBpmnActivityBehavior {
                 email.setHostName(host);
 
                 email.setSmtpPort(mailServerInfo.getMailServerPort());
+                email.setSslSmtpPort(Integer.toString(mailServerInfo.getMailServerSSLPort()));
 
                 email.setSSLOnConnect(processEngineConfiguration.getMailServerUseSSL());
                 email.setStartTLSEnabled(processEngineConfiguration.getMailServerUseTLS());
@@ -293,6 +294,7 @@ public class MailActivityBehavior extends AbstractBpmnActivityBehavior {
 
                 int port = processEngineConfiguration.getMailServerPort();
                 email.setSmtpPort(port);
+                email.setSslSmtpPort(Integer.toString(processEngineConfiguration.getMailServerSSLPort()));
 
                 email.setSSLOnConnect(processEngineConfiguration.getMailServerUseSSL());
                 email.setStartTLSEnabled(processEngineConfiguration.getMailServerUseTLS());

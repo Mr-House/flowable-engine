@@ -1,4 +1,18 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.flowable.rest.service.api.repository;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
 
@@ -9,6 +23,7 @@ import org.flowable.engine.repository.Deployment;
 import org.flowable.engine.repository.ProcessDefinition;
 import org.flowable.rest.service.BaseSpringRestTestCase;
 import org.flowable.rest.service.api.RestUrls;
+import org.junit.Test;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -23,6 +38,7 @@ public class ProcessDefinitionCollectionResourceTest extends BaseSpringRestTestC
     /**
      * Test getting process definitions. GET repository/process-definitions
      */
+    @Test
     public void testGetProcessDefinitions() throws Exception {
 
         try {
@@ -45,8 +61,7 @@ public class ProcessDefinitionCollectionResourceTest extends BaseSpringRestTestC
             String baseUrl = RestUrls.createRelativeResourceUrl(RestUrls.URL_PROCESS_DEFINITION_COLLECTION);
             assertResultsPresentInDataResponse(baseUrl, oneTaskProcess.getId(), twoTaskprocess.getId(), latestOneTaskProcess.getId(), oneTaskWithDiProcess.getId());
 
-            // Verify ACT-2141 Persistent isGraphicalNotation flag for process
-            // definitions
+            // Verify ACT-2141 Persistent isGraphicalNotation flag for process definitions
             CloseableHttpResponse response = executeRequest(new HttpGet(SERVER_URL_PREFIX + baseUrl), HttpStatus.SC_OK);
             JsonNode dataNode = objectMapper.readTree(response.getEntity().getContent()).get("data");
             closeResponse(response);
@@ -55,10 +70,10 @@ public class ProcessDefinitionCollectionResourceTest extends BaseSpringRestTestC
 
                 String key = processDefinitionJson.get("key").asText();
                 JsonNode graphicalNotationNode = processDefinitionJson.get("graphicalNotationDefined");
-                if (key.equals("oneTaskProcessWithDi")) {
-                    assertTrue(graphicalNotationNode.asBoolean());
+                if ("oneTaskProcessWithDi".equals(key)) {
+                    assertThat(graphicalNotationNode.asBoolean()).isTrue();
                 } else {
-                    assertFalse(graphicalNotationNode.asBoolean());
+                    assertThat(graphicalNotationNode.asBoolean()).isFalse();
                 }
 
             }
@@ -113,7 +128,7 @@ public class ProcessDefinitionCollectionResourceTest extends BaseSpringRestTestC
             url = baseUrl + "?latest=true";
             assertResultsPresentInDataResponse(url, latestOneTaskProcess.getId(), twoTaskprocess.getId(), oneTaskWithDiProcess.getId());
             url = baseUrl + "?latest=false";
-            assertResultsPresentInDataResponse(baseUrl, oneTaskProcess.getId(), twoTaskprocess.getId(), latestOneTaskProcess.getId(), oneTaskWithDiProcess.getId());
+            assertResultsPresentInDataResponse(url, oneTaskProcess.getId(), twoTaskprocess.getId(), latestOneTaskProcess.getId(), oneTaskWithDiProcess.getId());
 
             // Test deploymentId
             url = baseUrl + "?deploymentId=" + secondDeployment.getId();

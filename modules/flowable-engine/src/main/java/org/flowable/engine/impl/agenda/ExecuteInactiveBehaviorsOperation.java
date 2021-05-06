@@ -17,8 +17,8 @@ import java.util.Collection;
 
 import org.flowable.bpmn.model.FlowNode;
 import org.flowable.bpmn.model.Process;
-import org.flowable.engine.common.impl.interceptor.Command;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
+import org.flowable.common.engine.impl.interceptor.Command;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
 import org.flowable.engine.impl.delegate.InactiveActivityBehavior;
 import org.flowable.engine.impl.persistence.entity.ExecutionEntity;
 import org.flowable.engine.impl.util.CommandContextUtil;
@@ -41,7 +41,7 @@ public class ExecuteInactiveBehaviorsOperation extends AbstractOperation {
 
     public ExecuteInactiveBehaviorsOperation(CommandContext commandContext) {
         super(commandContext, null);
-        this.involvedExecutions = CommandContextUtil.getInvolvedExecutions(commandContext).values();
+        this.involvedExecutions = new ArrayList<>(CommandContextUtil.getInvolvedExecutions(commandContext).values());
     }
 
     @Override

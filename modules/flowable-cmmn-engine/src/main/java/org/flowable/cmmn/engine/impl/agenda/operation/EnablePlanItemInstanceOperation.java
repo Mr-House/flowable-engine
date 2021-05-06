@@ -14,31 +14,46 @@ package org.flowable.cmmn.engine.impl.agenda.operation;
 
 import org.flowable.cmmn.api.runtime.PlanItemInstanceState;
 import org.flowable.cmmn.engine.impl.persistence.entity.PlanItemInstanceEntity;
+import org.flowable.cmmn.engine.impl.util.CommandContextUtil;
 import org.flowable.cmmn.model.PlanItemTransition;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
 
 /**
  * @author Joram Barrez
  */
 public class EnablePlanItemInstanceOperation extends AbstractChangePlanItemInstanceStateOperation {
-    
-    public EnablePlanItemInstanceOperation(CommandContext commandContext, PlanItemInstanceEntity planItemInstanceEntity) {
+
+    protected String entryCriterionId;
+
+    public EnablePlanItemInstanceOperation(CommandContext commandContext, PlanItemInstanceEntity planItemInstanceEntity, String entryCriterionId) {
         super(commandContext, planItemInstanceEntity);
+        this.entryCriterionId = entryCriterionId;
     }
     
     @Override
-    protected String getLifeCycleTransition() {
+    public String getLifeCycleTransition() {
         return PlanItemTransition.ENABLE;
     }
     
     @Override
-    protected String getNewState() {
+    public String getNewState() {
         return PlanItemInstanceState.ENABLED;
     }
     
     @Override
     protected void internalExecute() {
-        // Nothing extra to do
+
+        // Sentries are not needed to be kept around, as the plan item is being enabled
+        removeSentryRelatedData();
+
+        planItemInstanceEntity.setEntryCriterionId(entryCriterionId);
+        planItemInstanceEntity.setLastEnabledTime(getCurrentTime(commandContext));
+        CommandContextUtil.getCmmnHistoryManager(commandContext).recordPlanItemInstanceEnabled(planItemInstanceEntity);
     }
-    
+
+    @Override
+    public String getOperationName() {
+        return "[Enable plan item]";
+    }
+
 }

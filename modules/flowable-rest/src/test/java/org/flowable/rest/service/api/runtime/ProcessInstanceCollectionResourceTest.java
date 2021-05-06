@@ -1,9 +1,9 @@
 /* Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -13,7 +13,16 @@
 
 package org.flowable.rest.service.api.runtime;
 
+import static net.javacrumbs.jsonunit.assertj.JsonAssertions.assertThatJson;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.entry;
+
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,25 +34,35 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.flowable.engine.history.HistoricProcessInstance;
 import org.flowable.engine.impl.cmd.ChangeDeploymentTenantIdCmd;
+import org.flowable.engine.repository.ProcessDefinition;
 import org.flowable.engine.runtime.ProcessInstance;
 import org.flowable.engine.test.Deployment;
+import org.flowable.form.api.FormDefinition;
+import org.flowable.form.api.FormDeployment;
+import org.flowable.form.api.FormInstance;
 import org.flowable.rest.service.BaseSpringRestTestCase;
 import org.flowable.rest.service.api.RestUrls;
+import org.flowable.task.api.Task;
+import org.junit.Test;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import net.javacrumbs.jsonunit.core.Option;
+
 /**
  * Test for all REST-operations related to a single Process instance resource.
- * 
+ *
  * @author Frederik Heremans
  * @author Saeid Mirzaei
+ * @author Filip Hrisafov
  */
 public class ProcessInstanceCollectionResourceTest extends BaseSpringRestTestCase {
 
     // check if process instance query with business key with and without includeProcess Variables
     // related to https://activiti.atlassian.net/browse/ACT-1992
+    @Test
     @Deployment(resources = { "org/flowable/rest/service/api/runtime/ProcessInstanceResourceTest.process-one.bpmn20.xml" })
     public void testGetProcessInstancesByBusinessKeyAndIncludeVariables() throws Exception {
         HashMap<String, Object> variables = new HashMap<>();
@@ -58,14 +77,17 @@ public class ProcessInstanceCollectionResourceTest extends BaseSpringRestTestCas
 
         JsonNode rootNode = objectMapper.readTree(response.getEntity().getContent());
         closeResponse(response);
-        assertTrue(rootNode.size() > 0);
-        assertEquals(1, rootNode.get("data").size());
-        JsonNode dataNode = rootNode.get("data").get(0);
-        assertEquals(processId, dataNode.get("id").asText());
-        assertEquals(processInstance.getProcessDefinitionId(), dataNode.get("processDefinitionId").asText());
-        assertTrue(dataNode.get("processDefinitionUrl").asText().contains(processInstance.getProcessDefinitionId()));
-        JsonNode variableNodes = dataNode.get("variables");
-        assertEquals(0, variableNodes.size());
+        assertThatJson(rootNode)
+                .when(Option.IGNORING_EXTRA_FIELDS)
+                .isEqualTo("{"
+                        + "data: [ {"
+                        + "   id: '" + processId + "',"
+                        + "   processDefinitionId: '" + processInstance.getProcessDefinitionId() + "',"
+                        + "   processDefinitionUrl: '" + SERVER_URL_PREFIX + RestUrls
+                        .createRelativeResourceUrl(RestUrls.URL_PROCESS_DEFINITION, processInstance.getProcessDefinitionId()) + "',"
+                        + "   variables: [ ]"
+                        + "} ]"
+                        + "}");
 
         // check that the right process is returned along with the variables
         // when includeProcessvariable is set
@@ -75,27 +97,26 @@ public class ProcessInstanceCollectionResourceTest extends BaseSpringRestTestCas
 
         rootNode = objectMapper.readTree(response.getEntity().getContent());
         closeResponse(response);
-        assertTrue(rootNode.size() > 0);
-        assertEquals(1, rootNode.get("data").size());
-        dataNode = rootNode.get("data").get(0);
-        assertEquals(processId, dataNode.get("id").textValue());
-        assertEquals(processInstance.getProcessDefinitionId(), dataNode.get("processDefinitionId").asText());
-        assertTrue(dataNode.get("processDefinitionUrl").asText().contains(processInstance.getProcessDefinitionId()));
-        variableNodes = dataNode.get("variables");
-        assertEquals(1, variableNodes.size());
-
-        variableNodes = dataNode.get("variables");
-        assertEquals(1, variableNodes.size());
-        assertNotNull(variableNodes.get(0).get("name"));
-        assertNotNull(variableNodes.get(0).get("value"));
-
-        assertEquals("myVar1", variableNodes.get(0).get("name").asText());
-        assertEquals("myVar1", variableNodes.get(0).get("value").asText());
+        assertThatJson(rootNode)
+                .when(Option.IGNORING_EXTRA_FIELDS)
+                .isEqualTo("{"
+                        + "data: [ {"
+                        + "   id: '" + processId + "',"
+                        + "   processDefinitionId: '" + processInstance.getProcessDefinitionId() + "',"
+                        + "   processDefinitionUrl: '" + SERVER_URL_PREFIX + RestUrls
+                        .createRelativeResourceUrl(RestUrls.URL_PROCESS_DEFINITION, processInstance.getProcessDefinitionId()) + "',"
+                        + "   variables: [ {"
+                        + "                name: 'myVar1',"
+                        + "                value: 'myVar1'"
+                        + "   } ]"
+                        + "} ]"
+                        + "}");
     }
 
     /**
      * Test getting a list of process instance, using all possible filters.
      */
+    @Test
     @Deployment(resources = { "org/flowable/rest/service/api/runtime/ProcessInstanceResourceTest.process-one.bpmn20.xml" })
     public void testGetProcessInstances() throws Exception {
         ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("processOne", "myBusinessKey");
@@ -119,6 +140,9 @@ public class ProcessInstanceCollectionResourceTest extends BaseSpringRestTestCas
 
         url = RestUrls.createRelativeResourceUrl(RestUrls.URL_PROCESS_INSTANCE_COLLECTION) + "?businessKey=anotherBusinessKey";
         assertResultsPresentInDataResponse(url);
+
+        url = RestUrls.createRelativeResourceUrl(RestUrls.URL_PROCESS_INSTANCE_COLLECTION) + "?businessKeyLike=" + encode("%BusinessKey");
+        assertResultsPresentInDataResponse(url, id);
 
         // Process definition key
         url = RestUrls.createRelativeResourceUrl(RestUrls.URL_PROCESS_INSTANCE_COLLECTION) + "?processDefinitionKey=processOne";
@@ -161,7 +185,7 @@ public class ProcessInstanceCollectionResourceTest extends BaseSpringRestTestCas
         taskService.complete(taskService.createTaskQuery().processInstanceId(id).singleResult().getId());
 
         ProcessInstance subProcess = runtimeService.createProcessInstanceQuery().superProcessInstanceId(id).singleResult();
-        assertNotNull(subProcess);
+        assertThat(subProcess).isNotNull();
 
         // Super-process instance id
         url = RestUrls.createRelativeResourceUrl(RestUrls.URL_PROCESS_INSTANCE_COLLECTION) + "?superProcessInstanceId=" + id;
@@ -179,8 +203,44 @@ public class ProcessInstanceCollectionResourceTest extends BaseSpringRestTestCas
     }
 
     /**
+     * Test getting a list of sorted process instance
+     */
+    @Test
+    @Deployment(resources = { "org/flowable/rest/service/api/runtime/ProcessInstanceResourceTest.process-one.bpmn20.xml" })
+    public void testGetProcessInstancesSorted() throws Exception {
+        Instant initialTime = Instant.now();
+        processEngineConfiguration.getClock().setCurrentTime(Date.from(initialTime));
+        String nowInstanceId = runtimeService.startProcessInstanceByKey("processOne", "now").getId();
+
+        processEngineConfiguration.getClock().setCurrentTime(Date.from(initialTime.plus(1, ChronoUnit.HOURS)));
+        String nowPlus1InstanceId = runtimeService.startProcessInstanceByKey("processOne", "nowPlus1").getId();
+
+        processEngineConfiguration.getClock().setCurrentTime(Date.from(initialTime.minus(1, ChronoUnit.HOURS)));
+        String nowMinus1InstanceId = runtimeService.startProcessInstanceByKey("processOne", "nowMinus1").getId();
+
+        List<String> sortedIds = new ArrayList<>();
+        sortedIds.add(nowInstanceId);
+        sortedIds.add(nowPlus1InstanceId);
+        sortedIds.add(nowMinus1InstanceId);
+        Collections.sort(sortedIds);
+
+        // Test without any parameters
+        String url = RestUrls.createRelativeResourceUrl(RestUrls.URL_PROCESS_INSTANCE_COLLECTION);
+        assertResultsExactlyPresentInDataResponse(url, sortedIds.toArray(new String[0]));
+
+        // Sort by start time
+        url = RestUrls.createRelativeResourceUrl(RestUrls.URL_PROCESS_INSTANCE_COLLECTION) + "?sort=startTime";
+        assertResultsExactlyPresentInDataResponse(url, nowMinus1InstanceId, nowInstanceId, nowPlus1InstanceId);
+
+        // Sort by start time desc
+        url = RestUrls.createRelativeResourceUrl(RestUrls.URL_PROCESS_INSTANCE_COLLECTION) + "?sort=startTime&order=desc";
+        assertResultsExactlyPresentInDataResponse(url, nowPlus1InstanceId, nowInstanceId, nowMinus1InstanceId);
+    }
+
+    /**
      * Test getting a list of process instance, using all tenant filters.
      */
+    @Test
     @Deployment(resources = { "org/flowable/rest/service/api/runtime/ProcessInstanceResourceTest.process-one.bpmn20.xml" })
     public void testGetProcessInstancesTenant() throws Exception {
         ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("processOne", "myBusinessKey");
@@ -215,6 +275,7 @@ public class ProcessInstanceCollectionResourceTest extends BaseSpringRestTestCas
     /**
      * Test starting a process instance using procDefinitionId, key procDefinitionKey business-key.
      */
+    @Test
     @Deployment(resources = { "org/flowable/rest/service/api/runtime/ProcessInstanceResourceTest.process-one.bpmn20.xml" })
     public void testStartProcess() throws Exception {
         ObjectNode requestNode = objectMapper.createObjectNode();
@@ -227,21 +288,26 @@ public class ProcessInstanceCollectionResourceTest extends BaseSpringRestTestCas
         CloseableHttpResponse response = executeRequest(httpPost, HttpStatus.SC_CREATED);
 
         ProcessInstance processInstance = runtimeService.createProcessInstanceQuery().singleResult();
-        assertNotNull(processInstance);
+        assertThat(processInstance).isNotNull();
 
-        HistoricProcessInstance historicProcessInstance = historyService.createHistoricProcessInstanceQuery().processInstanceId(processInstance.getId()).singleResult();
-        assertNotNull(historicProcessInstance);
-        assertEquals("kermit", historicProcessInstance.getStartUserId());
+        HistoricProcessInstance historicProcessInstance = historyService.createHistoricProcessInstanceQuery().processInstanceId(processInstance.getId())
+                .singleResult();
+        assertThat(historicProcessInstance).isNotNull();
+        assertThat(historicProcessInstance.getStartUserId()).isEqualTo("kermit");
 
         JsonNode responseNode = objectMapper.readTree(response.getEntity().getContent());
         closeResponse(response);
-        assertNotNull(responseNode);
-        assertEquals(processInstance.getId(), responseNode.get("id").textValue());
-        assertTrue(responseNode.get("businessKey").isNull());
-        assertFalse(responseNode.get("suspended").booleanValue());
+        assertThatJson(responseNode)
+                .when(Option.IGNORING_EXTRA_FIELDS)
+                .isEqualTo("{"
+                        + "id: '" + processInstance.getId() + "',"
+                        + "businessKey: null,"
+                        + "suspended: false,"
+                        + "url: '" + SERVER_URL_PREFIX + RestUrls.createRelativeResourceUrl(RestUrls.URL_PROCESS_INSTANCE, processInstance.getId()) + "',"
+                        + "processDefinitionUrl: '" + SERVER_URL_PREFIX + RestUrls
+                        .createRelativeResourceUrl(RestUrls.URL_PROCESS_DEFINITION, processInstance.getProcessDefinitionId()) + "'"
+                        + "}");
 
-        assertTrue(responseNode.get("url").asText().endsWith(RestUrls.createRelativeResourceUrl(RestUrls.URL_PROCESS_INSTANCE, processInstance.getId())));
-        assertTrue(responseNode.get("processDefinitionUrl").asText().endsWith(RestUrls.createRelativeResourceUrl(RestUrls.URL_PROCESS_DEFINITION, processInstance.getProcessDefinitionId())));
         runtimeService.deleteProcessInstance(processInstance.getId(), "testing");
 
         // Start using process definition id
@@ -251,17 +317,22 @@ public class ProcessInstanceCollectionResourceTest extends BaseSpringRestTestCas
         response = executeRequest(httpPost, HttpStatus.SC_CREATED);
 
         processInstance = runtimeService.createProcessInstanceQuery().singleResult();
-        assertNotNull(processInstance);
+        assertThat(processInstance).isNotNull();
 
         responseNode = objectMapper.readTree(response.getEntity().getContent());
         closeResponse(response);
-        assertNotNull(responseNode);
-        assertEquals(processInstance.getId(), responseNode.get("id").textValue());
-        assertTrue(responseNode.get("businessKey").isNull());
-        assertFalse(responseNode.get("suspended").booleanValue());
+        assertThat(responseNode).isNotNull();
+        assertThatJson(responseNode)
+                .when(Option.IGNORING_EXTRA_FIELDS)
+                .isEqualTo("{"
+                        + "id: '" + processInstance.getId() + "',"
+                        + "businessKey: null,"
+                        + "suspended: false,"
+                        + "url: '" + SERVER_URL_PREFIX + RestUrls.createRelativeResourceUrl(RestUrls.URL_PROCESS_INSTANCE, processInstance.getId()) + "',"
+                        + "processDefinitionUrl: '" + SERVER_URL_PREFIX + RestUrls
+                        .createRelativeResourceUrl(RestUrls.URL_PROCESS_DEFINITION, processInstance.getProcessDefinitionId()) + "'"
+                        + "}");
 
-        assertTrue(responseNode.get("url").asText().endsWith(RestUrls.createRelativeResourceUrl(RestUrls.URL_PROCESS_INSTANCE, processInstance.getId())));
-        assertTrue(responseNode.get("processDefinitionUrl").asText().endsWith(RestUrls.createRelativeResourceUrl(RestUrls.URL_PROCESS_DEFINITION, processInstance.getProcessDefinitionId())));
         runtimeService.deleteProcessInstance(processInstance.getId(), "testing");
 
         // Start using message
@@ -271,17 +342,21 @@ public class ProcessInstanceCollectionResourceTest extends BaseSpringRestTestCas
         response = executeRequest(httpPost, HttpStatus.SC_CREATED);
 
         processInstance = runtimeService.createProcessInstanceQuery().singleResult();
-        assertNotNull(processInstance);
+        assertThat(processInstance).isNotNull();
 
         responseNode = objectMapper.readTree(response.getEntity().getContent());
         closeResponse(response);
-        assertNotNull(responseNode);
-        assertEquals(processInstance.getId(), responseNode.get("id").textValue());
-        assertTrue(responseNode.get("businessKey").isNull());
-        assertFalse(responseNode.get("suspended").booleanValue());
-
-        assertTrue(responseNode.get("url").asText().endsWith(RestUrls.createRelativeResourceUrl(RestUrls.URL_PROCESS_INSTANCE, processInstance.getId())));
-        assertTrue(responseNode.get("processDefinitionUrl").asText().endsWith(RestUrls.createRelativeResourceUrl(RestUrls.URL_PROCESS_DEFINITION, processInstance.getProcessDefinitionId())));
+        assertThat(responseNode).isNotNull();
+        assertThatJson(responseNode)
+                .when(Option.IGNORING_EXTRA_FIELDS)
+                .isEqualTo("{"
+                        + "id: '" + processInstance.getId() + "',"
+                        + "businessKey: null,"
+                        + "suspended: false,"
+                        + "url: '" + SERVER_URL_PREFIX + RestUrls.createRelativeResourceUrl(RestUrls.URL_PROCESS_INSTANCE, processInstance.getId()) + "',"
+                        + "processDefinitionUrl: '" + SERVER_URL_PREFIX + RestUrls
+                        .createRelativeResourceUrl(RestUrls.URL_PROCESS_DEFINITION, processInstance.getProcessDefinitionId()) + "'"
+                        + "}");
 
         // Start using process definition id and business key
         requestNode = objectMapper.createObjectNode();
@@ -292,13 +367,14 @@ public class ProcessInstanceCollectionResourceTest extends BaseSpringRestTestCas
 
         responseNode = objectMapper.readTree(response.getEntity().getContent());
         closeResponse(response);
-        assertNotNull(responseNode);
-        assertEquals("myBusinessKey", responseNode.get("businessKey").textValue());
+        assertThat(responseNode).isNotNull();
+        assertThat(responseNode.get("businessKey").textValue()).isEqualTo("myBusinessKey");
     }
 
     /**
      * Test starting a process instance passing in variables to set.
      */
+    @Test
     @Deployment(resources = { "org/flowable/rest/service/api/runtime/ProcessInstanceResourceTest.process-one.bpmn20.xml" })
     public void testStartProcessWithVariables() throws Exception {
         ArrayNode variablesNode = objectMapper.createArrayNode();
@@ -354,29 +430,35 @@ public class ProcessInstanceCollectionResourceTest extends BaseSpringRestTestCas
 
         JsonNode responseNode = objectMapper.readTree(response.getEntity().getContent());
         closeResponse(response);
-        assertFalse(responseNode.get("ended").asBoolean());
+        assertThatJson(responseNode)
+                .when(Option.IGNORING_EXTRA_FIELDS)
+                .isEqualTo("{"
+                        + "   ended: false"
+                        + "}");
         JsonNode variablesArrayNode = responseNode.get("variables");
-        assertEquals(0, variablesArrayNode.size());
+        assertThat(variablesArrayNode).hasSize(7);
 
         ProcessInstance processInstance = runtimeService.createProcessInstanceQuery().singleResult();
-        assertNotNull(processInstance);
+        assertThat(processInstance).isNotNull();
 
         // Check if engine has correct variables set
         Map<String, Object> processVariables = runtimeService.getVariables(processInstance.getId());
-        assertEquals(7, processVariables.size());
-
-        assertEquals("simple string value", processVariables.get("stringVariable"));
-        assertEquals(1234, processVariables.get("integerVariable"));
-        assertEquals((short) 123, processVariables.get("shortVariable"));
-        assertEquals(4567890L, processVariables.get("longVariable"));
-        assertEquals(123.456, processVariables.get("doubleVariable"));
-        assertEquals(Boolean.TRUE, processVariables.get("booleanVariable"));
-        assertEquals(dateFormat.parse(isoString), processVariables.get("dateVariable"));
+        assertThat(processVariables)
+                .containsOnly(
+                        entry("stringVariable", "simple string value"),
+                        entry("integerVariable", 1234),
+                        entry("shortVariable", (short) 123),
+                        entry("longVariable", 4567890L),
+                        entry("doubleVariable", 123.456),
+                        entry("booleanVariable", Boolean.TRUE),
+                        entry("dateVariable", dateFormat.parse(isoString))
+                );
     }
 
     /**
      * Test starting a process instance passing in variables to set.
      */
+    @Test
     @Deployment(resources = { "org/flowable/rest/service/api/runtime/ProcessInstanceResourceTest.process-one.bpmn20.xml" })
     public void testStartProcessWithVariablesAndReturnVariables() throws Exception {
         ArrayNode variablesNode = objectMapper.createArrayNode();
@@ -404,34 +486,122 @@ public class ProcessInstanceCollectionResourceTest extends BaseSpringRestTestCas
         CloseableHttpResponse response = executeRequest(httpPost, HttpStatus.SC_CREATED);
         JsonNode responseNode = objectMapper.readTree(response.getEntity().getContent());
         closeResponse(response);
-        assertFalse(responseNode.get("ended").asBoolean());
-        JsonNode variablesArrayNode = responseNode.get("variables");
-        assertEquals(2, variablesArrayNode.size());
-        for (JsonNode variableNode : variablesArrayNode) {
-            if ("stringVariable".equals(variableNode.get("name").asText())) {
-                assertEquals("simple string value", variableNode.get("value").asText());
-                assertEquals("string", variableNode.get("type").asText());
-
-            } else if ("integerVariable".equals(variableNode.get("name").asText())) {
-                assertEquals(1234, variableNode.get("value").asInt());
-                assertEquals("integer", variableNode.get("type").asText());
-
-            } else {
-                fail("Unexpected variable " + variableNode.get("name").asText());
-            }
-        }
+        assertThatJson(responseNode)
+                .when(Option.IGNORING_EXTRA_FIELDS, Option.IGNORING_ARRAY_ORDER)
+                .isEqualTo("{"
+                        + "  ended: false,"
+                        + "  variables: [ {"
+                        + "               name: 'stringVariable',"
+                        + "               value: 'simple string value',"
+                        + "               type: 'string'"
+                        + "              }, {"
+                        + "               name: 'integerVariable',"
+                        + "               value: 1234,"
+                        + "               type: 'integer'"
+                        + "              } ]"
+                        + "}");
 
         ProcessInstance processInstance = runtimeService.createProcessInstanceQuery().singleResult();
-        assertNotNull(processInstance);
+        assertThat(processInstance).isNotNull();
 
         // Check if engine has correct variables set
         Map<String, Object> processVariables = runtimeService.getVariables(processInstance.getId());
-        assertEquals(2, processVariables.size());
 
-        assertEquals("simple string value", processVariables.get("stringVariable"));
-        assertEquals(1234, processVariables.get("integerVariable"));
+        assertThat(processVariables)
+                .containsOnly(
+                        entry("stringVariable", "simple string value"),
+                        entry("integerVariable", 1234)
+                );
     }
 
+    @Test
+    @Deployment(resources = { "org/flowable/rest/service/api/runtime/ProcessInstanceResourceTest.process-with-form.bpmn20.xml",
+            "org/flowable/rest/service/api/runtime/simple.form" })
+    public void testStartProcessWithForm() throws Exception {
+        ProcessDefinition processDefinition = repositoryService.createProcessDefinitionQuery().processDefinitionKey("processOne").singleResult();
+        try {
+            FormDefinition formDefinition = formRepositoryService.createFormDefinitionQuery().formDefinitionKey("form1").singleResult();
+            assertThat(formDefinition).isNotNull();
+
+            FormInstance formInstance = formEngineFormService.createFormInstanceQuery().formDefinitionId(formDefinition.getId()).singleResult();
+            assertThat(formInstance).isNull();
+
+            String url = RestUrls.createRelativeResourceUrl(RestUrls.URL_PROCESS_DEFINITION_START_FORM, processDefinition.getId());
+            CloseableHttpResponse response = executeRequest(new HttpGet(SERVER_URL_PREFIX + url), HttpStatus.SC_OK);
+            JsonNode responseNode = objectMapper.readTree(response.getEntity().getContent());
+            closeResponse(response);
+            assertThatJson(responseNode)
+                    .when(Option.IGNORING_EXTRA_FIELDS, Option.IGNORING_ARRAY_ORDER)
+                    .isEqualTo("{"
+                            + " id: '" + formDefinition.getId() + "',"
+                            + " key: '" + formDefinition.getKey() + "',"
+                            + " name: '" + formDefinition.getName() + "',"
+                            + " fields : [ {"
+                            + "               id: 'user'"
+                            + "          }, {"
+                            + "               id: 'number'"
+                            + "          } ]"
+                            + "}");
+
+            ArrayNode formVariablesNode = objectMapper.createArrayNode();
+
+            // String variable
+            ObjectNode stringVarNode = formVariablesNode.addObject();
+            stringVarNode.put("name", "user");
+            stringVarNode.put("value", "simple string value");
+            stringVarNode.put("type", "string");
+
+            ObjectNode integerVarNode = formVariablesNode.addObject();
+            integerVarNode.put("name", "number");
+            integerVarNode.put("value", 1234);
+            integerVarNode.put("type", "integer");
+
+            ObjectNode requestNode = objectMapper.createObjectNode();
+
+            // Start using process definition key, passing in variables
+            requestNode.put("processDefinitionKey", "processOne");
+            requestNode.set("startFormVariables", formVariablesNode);
+
+            HttpPost httpPost = new HttpPost(SERVER_URL_PREFIX + RestUrls.createRelativeResourceUrl(RestUrls.URL_PROCESS_INSTANCE_COLLECTION));
+            httpPost.setEntity(new StringEntity(requestNode.toString()));
+            response = executeRequest(httpPost, HttpStatus.SC_CREATED);
+
+            responseNode = objectMapper.readTree(response.getEntity().getContent());
+            closeResponse(response);
+            assertThatJson(responseNode)
+                    .when(Option.IGNORING_EXTRA_FIELDS)
+                    .isEqualTo("{"
+                            + "   ended: false"
+                            + "}");
+
+            String processInstanceId = responseNode.get("id").asText();
+            assertThat(runtimeService.getVariable(processInstanceId, "user")).isEqualTo("simple string value");
+            assertThat(runtimeService.getVariable(processInstanceId, "number")).isEqualTo(1234);
+
+            formInstance = formEngineFormService.createFormInstanceQuery().formDefinitionId(formDefinition.getId()).singleResult();
+            assertThat(formInstance).isNotNull();
+            byte[] valuesBytes = formEngineFormService.getFormInstanceValues(formInstance.getId());
+            assertThat(valuesBytes).isNotNull();
+            JsonNode instanceNode = objectMapper.readTree(valuesBytes);
+            assertThatJson(instanceNode)
+                    .isEqualTo("{"
+                            + "values: {"
+                            + "        number: '1234',"
+                            + "        user: 'simple string value'"
+                            + "        }"
+                            + "}");
+
+        } finally {
+            formEngineFormService.deleteFormInstancesByProcessDefinition(processDefinition.getId());
+
+            List<FormDeployment> formDeployments = formRepositoryService.createDeploymentQuery().list();
+            for (FormDeployment formDeployment : formDeployments) {
+                formRepositoryService.deleteDeployment(formDeployment.getId(), true);
+            }
+        }
+    }
+
+    @Test
     @Deployment(resources = { "org/flowable/rest/service/api/oneTaskProcess.bpmn20.xml" })
     public void testStartProcessUsingKeyAndTenantId() throws Exception {
         org.flowable.engine.repository.Deployment tenantDeployment = null;
@@ -453,8 +623,8 @@ public class ProcessInstanceCollectionResourceTest extends BaseSpringRestTestCas
 
             // Only one process should have been started
             ProcessInstance processInstance = runtimeService.createProcessInstanceQuery().singleResult();
-            assertNotNull(processInstance);
-            assertEquals("tenant1", processInstance.getTenantId());
+            assertThat(processInstance).isNotNull();
+            assertThat(processInstance.getTenantId()).isEqualTo("tenant1");
 
             // Start using an unexisting tenant
             requestNode.put("processDefinitionKey", "oneTaskProcess");
@@ -475,6 +645,7 @@ public class ProcessInstanceCollectionResourceTest extends BaseSpringRestTestCas
     /**
      * Test starting a process instance, covering all edge-cases.
      */
+    @Test
     public void testStartProcessExceptions() throws Exception {
 
         ObjectNode requestNode = objectMapper.createObjectNode();
@@ -525,6 +696,7 @@ public class ProcessInstanceCollectionResourceTest extends BaseSpringRestTestCas
     /**
      * Explicitly testing the statelessness of the Rest API.
      */
+    @Test
     @Deployment(resources = { "org/flowable/rest/service/api/runtime/ProcessInstanceResourceTest.process-one.bpmn20.xml" })
     public void testStartProcessWithSameHttpClient() throws Exception {
         ObjectNode requestNode = objectMapper.createObjectNode();
@@ -542,12 +714,65 @@ public class ProcessInstanceCollectionResourceTest extends BaseSpringRestTestCas
         closeResponse(executeRequest(httpPost, HttpStatus.SC_CREATED));
 
         List<ProcessInstance> processInstances = runtimeService.createProcessInstanceQuery().list();
-        assertEquals(2, processInstances.size());
+        assertThat(processInstances).hasSize(2);
         for (ProcessInstance processInstance : processInstances) {
-            HistoricProcessInstance historicProcessInstance = historyService.createHistoricProcessInstanceQuery().processInstanceId(processInstance.getId()).singleResult();
-            assertNotNull(historicProcessInstance);
-            assertEquals("kermit", historicProcessInstance.getStartUserId());
+            HistoricProcessInstance historicProcessInstance = historyService.createHistoricProcessInstanceQuery().processInstanceId(processInstance.getId())
+                    .singleResult();
+            assertThat(historicProcessInstance).isNotNull();
+            assertThat(historicProcessInstance.getStartUserId()).isEqualTo("kermit");
         }
 
+    }
+    
+    @Test
+    @Deployment(resources = { "org/flowable/rest/service/api/twoTaskProcess.bpmn20.xml" })
+    public void testGetProcessInstancesByActiveActivityId() throws Exception {
+        ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("oneTaskProcess");
+        
+        // check that the right process is returned with no variables
+        String url = RestUrls.createRelativeResourceUrl(RestUrls.URL_PROCESS_INSTANCE_COLLECTION) + "?activeActivityId=processTask";
+
+        CloseableHttpResponse response = executeRequest(new HttpGet(SERVER_URL_PREFIX + url), HttpStatus.SC_OK);
+
+        JsonNode rootNode = objectMapper.readTree(response.getEntity().getContent());
+        closeResponse(response);
+        assertThatJson(rootNode)
+                .when(Option.IGNORING_EXTRA_FIELDS)
+                .isEqualTo("{"
+                        + "data: [ {"
+                        + "   id: '" + processInstance.getId() + "',"
+                        + "   processDefinitionId: '" + processInstance.getProcessDefinitionId() + "'"
+                        + "} ]"
+                        + "}");
+
+        url = RestUrls.createRelativeResourceUrl(RestUrls.URL_PROCESS_INSTANCE_COLLECTION) + "?activeActivityId=processTask2";
+
+        response = executeRequest(new HttpGet(SERVER_URL_PREFIX + url), HttpStatus.SC_OK);
+
+        rootNode = objectMapper.readTree(response.getEntity().getContent());
+        closeResponse(response);
+        assertThatJson(rootNode)
+                .when(Option.IGNORING_EXTRA_FIELDS)
+                .isEqualTo("{"
+                        + "data: []"
+                        + "}");
+        
+        Task task = taskService.createTaskQuery().processInstanceId(processInstance.getId()).singleResult();
+        taskService.complete(task.getId());
+        
+        url = RestUrls.createRelativeResourceUrl(RestUrls.URL_PROCESS_INSTANCE_COLLECTION) + "?activeActivityId=processTask2";
+
+        response = executeRequest(new HttpGet(SERVER_URL_PREFIX + url), HttpStatus.SC_OK);
+
+        rootNode = objectMapper.readTree(response.getEntity().getContent());
+        closeResponse(response);
+        assertThatJson(rootNode)
+        .when(Option.IGNORING_EXTRA_FIELDS)
+        .isEqualTo("{"
+                + "data: [ {"
+                + "   id: '" + processInstance.getId() + "',"
+                + "   processDefinitionId: '" + processInstance.getProcessDefinitionId() + "'"
+                + "} ]"
+                + "}");
     }
 }

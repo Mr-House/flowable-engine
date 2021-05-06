@@ -12,10 +12,11 @@
  */
 package org.flowable.variable.service.impl.persistence.entity;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
-import org.flowable.engine.common.impl.persistence.entity.EntityManager;
+import org.flowable.common.engine.impl.persistence.entity.EntityManager;
 import org.flowable.variable.api.history.HistoricVariableInstance;
 import org.flowable.variable.service.impl.HistoricVariableInstanceQueryImpl;
 
@@ -24,17 +25,23 @@ import org.flowable.variable.service.impl.HistoricVariableInstanceQueryImpl;
  */
 public interface HistoricVariableInstanceEntityManager extends EntityManager<HistoricVariableInstanceEntity> {
 
-    HistoricVariableInstanceEntity createAndInsert(VariableInstanceEntity variableInstance);
+    HistoricVariableInstanceEntity create(VariableInstanceEntity variableInstance, Date createTime);
 
-    void copyVariableValue(HistoricVariableInstanceEntity historicVariableInstance, VariableInstanceEntity variableInstance);
+    HistoricVariableInstanceEntity createAndInsert(VariableInstanceEntity variableInstance, Date createTime);
+
+    void copyVariableValue(HistoricVariableInstanceEntity historicVariableInstance, VariableInstanceEntity variableInstance, Date updateTime);
 
     List<HistoricVariableInstance> findHistoricVariableInstancesByQueryCriteria(HistoricVariableInstanceQueryImpl historicProcessVariableQuery);
 
     HistoricVariableInstanceEntity findHistoricVariableInstanceByVariableInstanceId(String variableInstanceId);
     
-    List<HistoricVariableInstanceEntity> findHistoricalVariableInstancesByScopeIdAndScopeType(String subScopeId, String scopeType);
-    
-    List<HistoricVariableInstanceEntity> findHistoricalVariableInstancesBySubScopeIdAndScopeType(String scopeId, String scopeType);
+    List<HistoricVariableInstanceEntity> findHistoricalVariableInstancesByProcessInstanceId(String processInstanceId);
+
+    List<HistoricVariableInstanceEntity> findHistoricalVariableInstancesByTaskId(String taskId);
+
+    List<HistoricVariableInstanceEntity> findHistoricalVariableInstancesByScopeIdAndScopeType(String scopeId, String scopeType);
+
+    List<HistoricVariableInstanceEntity> findHistoricalVariableInstancesBySubScopeIdAndScopeType(String subScopeId, String scopeType);
 
     long findHistoricVariableInstanceCountByQueryCriteria(HistoricVariableInstanceQueryImpl historicProcessVariableQuery);
 
@@ -46,4 +53,7 @@ public interface HistoricVariableInstanceEntityManager extends EntityManager<His
 
     void deleteHistoricVariableInstanceByProcessInstanceId(String historicProcessInstanceId);
 
+    void deleteHistoricVariableInstancesForNonExistingProcessInstances();
+    
+    void deleteHistoricVariableInstancesForNonExistingCaseInstances();
 }

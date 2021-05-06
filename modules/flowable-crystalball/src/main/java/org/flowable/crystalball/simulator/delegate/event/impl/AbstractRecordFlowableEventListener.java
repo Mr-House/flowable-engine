@@ -16,17 +16,18 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import org.flowable.common.engine.api.delegate.event.AbstractFlowableEventListener;
+import org.flowable.common.engine.api.delegate.event.FlowableEvent;
 import org.flowable.crystalball.simulator.SimulationEvent;
 import org.flowable.crystalball.simulator.delegate.event.Function;
-import org.flowable.engine.common.api.delegate.event.FlowableEvent;
-import org.flowable.engine.common.api.delegate.event.FlowableEventListener;
 
 /**
  * This class provides abstract base to records engine events
  * 
  * @author martin.grofcik
  */
-public abstract class AbstractRecordFlowableEventListener implements FlowableEventListener {
+public abstract class AbstractRecordFlowableEventListener extends AbstractFlowableEventListener {
+    
     protected List<Function<FlowableEvent, SimulationEvent>> transformers;
 
     public AbstractRecordFlowableEventListener(List<Function<FlowableEvent, SimulationEvent>> transformers) {
@@ -57,4 +58,5 @@ public abstract class AbstractRecordFlowableEventListener implements FlowableEve
     public boolean isFailOnException() {
         return true;
     }
+    
 }

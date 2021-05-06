@@ -15,6 +15,8 @@ package org.flowable.cmmn.engine.impl.criteria;
 import org.flowable.cmmn.model.PlanItem;
 
 /**
+ * Internal class used during criteria evaluation.
+ *
  * @author Joram Barrez
  */
 public class PlanItemLifeCycleEvent {
@@ -41,6 +43,16 @@ public class PlanItemLifeCycleEvent {
 
     public void setTransition(String transition) {
         this.transition = transition;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append("PlanItem lifecycle event for plan item [").append(planItem).append("]");
+        if (transition != null) {
+            stringBuilder.append(" and transition '").append(transition).append("'");
+        }
+        return stringBuilder.toString();
     }
 
 }

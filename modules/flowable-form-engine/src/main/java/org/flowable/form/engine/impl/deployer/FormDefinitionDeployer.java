@@ -15,7 +15,8 @@ package org.flowable.form.engine.impl.deployer;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import org.flowable.engine.common.impl.cfg.IdGenerator;
+import org.flowable.common.engine.impl.cfg.IdGenerator;
+import org.flowable.form.engine.FormEngineConfiguration;
 import org.flowable.form.engine.impl.persistence.deploy.Deployer;
 import org.flowable.form.engine.impl.persistence.entity.FormDefinitionEntity;
 import org.flowable.form.engine.impl.persistence.entity.FormDefinitionEntityManager;
@@ -36,6 +37,7 @@ public class FormDefinitionDeployer implements Deployer {
     protected ParsedDeploymentBuilderFactory parsedDeploymentBuilderFactory;
     protected FormDefinitionDeploymentHelper formDeploymentHelper;
     protected CachingAndArtifactsManager cachingAndArtifactsManager;
+    protected boolean usePrefixId;
 
     @Override
     public void deploy(FormDeploymentEntity deployment) {
@@ -94,7 +96,11 @@ public class FormDefinitionDeployer implements Deployer {
             }
 
             formDefinition.setVersion(version);
-            formDefinition.setId(idGenerator.getNextId());
+            if (usePrefixId) {
+                formDefinition.setId(formDefinition.getIdPrefix() + idGenerator.getNextId());
+            } else {
+                formDefinition.setId(idGenerator.getNextId());
+            }
         }
     }
 
@@ -102,7 +108,8 @@ public class FormDefinitionDeployer implements Deployer {
      * Saves each decision table. It is assumed that the deployment is new, the definitions have never been saved before, and that they have all their values properly set up.
      */
     protected void persistFormDefinitions(ParsedDeployment parsedDeployment) {
-        FormDefinitionEntityManager formDefinitionEntityManager = CommandContextUtil.getFormDefinitionEntityManager();
+        FormEngineConfiguration formEngineConfiguration = CommandContextUtil.getFormEngineConfiguration();
+        FormDefinitionEntityManager formDefinitionEntityManager = formEngineConfiguration.getFormDefinitionEntityManager();
 
         for (FormDefinitionEntity formDefinition : parsedDeployment.getAllFormDefinitions()) {
             formDefinitionEntityManager.insert(formDefinition);
@@ -153,5 +160,13 @@ public class FormDefinitionDeployer implements Deployer {
 
     public void setCachingAndArtifactsManager(CachingAndArtifactsManager manager) {
         this.cachingAndArtifactsManager = manager;
+    }
+
+    public boolean isUsePrefixId() {
+        return usePrefixId;
+    }
+
+    public void setUsePrefixId(boolean usePrefixId) {
+        this.usePrefixId = usePrefixId;
     }
 }

@@ -1,9 +1,9 @@
 /* Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -14,19 +14,18 @@ package org.flowable.content.engine.impl.cmd;
 
 import java.io.InputStream;
 import java.io.Serializable;
-import java.util.HashMap;
-import java.util.Map;
 
+import org.flowable.common.engine.api.FlowableIllegalArgumentException;
+import org.flowable.common.engine.api.scope.ScopeTypes;
+import org.flowable.common.engine.impl.interceptor.Command;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
 import org.flowable.content.api.ContentItem;
-import org.flowable.content.api.ContentMetaDataKeys;
 import org.flowable.content.api.ContentObject;
+import org.flowable.content.api.ContentObjectStorageMetadata;
 import org.flowable.content.api.ContentStorage;
 import org.flowable.content.engine.ContentEngineConfiguration;
 import org.flowable.content.engine.impl.persistence.entity.ContentItemEntity;
 import org.flowable.content.engine.impl.util.CommandContextUtil;
-import org.flowable.engine.common.api.FlowableIllegalArgumentException;
-import org.flowable.engine.common.impl.interceptor.Command;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
 
 /**
  * @author Tijs Rademakers
@@ -63,17 +62,9 @@ public class SaveContentItemCmd implements Command<Void>, Serializable {
 
         if (inputStream != null) {
             // Stream given, write to store and save a reference to the content object
-            Map<String, Object> metaData = new HashMap<>();
-            if (contentItem.getTaskId() != null) {
-                metaData.put(ContentMetaDataKeys.TASK_ID, contentItem.getTaskId());
-            } else {
-                if (contentItem.getProcessInstanceId() != null) {
-                    metaData.put(ContentMetaDataKeys.PROCESS_INSTANCE_ID, contentItem.getProcessInstanceId());
-                }
-            }
 
             ContentStorage contentStorage = contentEngineConfiguration.getContentStorage();
-            ContentObject createContentObject = contentStorage.createContentObject(inputStream, metaData);
+            ContentObject createContentObject = contentStorage.createContentObject(inputStream, new ContentItemContentObjectMetadata());
             contentItemEntity.setContentStoreId(createContentObject.getId());
             contentItemEntity.setContentStoreName(contentStorage.getContentStoreName());
             contentItemEntity.setContentAvailable(true);
@@ -81,6 +72,9 @@ public class SaveContentItemCmd implements Command<Void>, Serializable {
             // After storing the stream, store the length to be accessible without having to consult the
             // underlying content storage to get file size
             contentItemEntity.setContentSize(createContentObject.getContentLength());
+
+            // Make lastModified timestamp update whenever the content changes
+            contentItemEntity.setLastModified(contentEngineConfiguration.getClock().getCurrentTime());
         }
 
         if (contentItemEntity.getLastModified() == null) {
@@ -91,14 +85,58 @@ public class SaveContentItemCmd implements Command<Void>, Serializable {
             if (contentItemEntity.getCreated() == null) {
                 contentItemEntity.setCreated(contentEngineConfiguration.getClock().getCurrentTime());
             }
-
-            CommandContextUtil.getContentItemEntityManager().insert(contentItemEntity);
-
+            contentEngineConfiguration.getContentItemEntityManager().insert(contentItemEntity);
+            
         } else {
-            CommandContextUtil.getContentItemEntityManager().update(contentItemEntity);
+            contentEngineConfiguration.getContentItemEntityManager().update(contentItemEntity);
         }
 
         return null;
+    }
+
+    protected class ContentItemContentObjectMetadata implements ContentObjectStorageMetadata {
+
+        @Override
+        public String getName() {
+            return contentItem.getName();
+        }
+
+        @Override
+        public String getScopeId() {
+            if (contentItem.getTaskId() != null) {
+                return contentItem.getTaskId();
+            } else if (contentItem.getProcessInstanceId() != null) {
+                return contentItem.getProcessInstanceId();
+            } else {
+                return contentItem.getScopeId();
+            }
+        }
+
+        @Override
+        public String getScopeType() {
+            if (contentItem.getTaskId() != null) {
+                return ScopeTypes.TASK;
+            } else if (contentItem.getProcessInstanceId() != null) {
+                return ScopeTypes.BPMN;
+            } else {
+                return contentItem.getScopeType();
+            }
+        }
+
+        @Override
+        public String getMimeType() {
+            return contentItem.getMimeType();
+        }
+
+        @Override
+        public String getTenantId() {
+            return contentItem.getTenantId();
+        }
+
+        @Override
+        public Object getStoredObject() {
+            return contentItem;
+        }
     }
 
 }

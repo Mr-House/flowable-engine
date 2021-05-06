@@ -15,6 +15,7 @@ package org.flowable.engine.impl.repository;
 import java.io.InputStream;
 import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -23,10 +24,10 @@ import java.util.zip.ZipInputStream;
 
 import org.flowable.bpmn.converter.BpmnXMLConverter;
 import org.flowable.bpmn.model.BpmnModel;
-import org.flowable.engine.common.api.FlowableException;
-import org.flowable.engine.common.api.FlowableIllegalArgumentException;
-import org.flowable.engine.common.impl.util.IoUtil;
-import org.flowable.engine.common.impl.util.ReflectUtil;
+import org.flowable.common.engine.api.FlowableException;
+import org.flowable.common.engine.api.FlowableIllegalArgumentException;
+import org.flowable.common.engine.impl.util.IoUtil;
+import org.flowable.common.engine.impl.util.ReflectUtil;
 import org.flowable.engine.impl.RepositoryServiceImpl;
 import org.flowable.engine.impl.persistence.entity.DeploymentEntity;
 import org.flowable.engine.impl.persistence.entity.ResourceEntity;
@@ -135,12 +136,8 @@ public class DeploymentBuilderImpl implements DeploymentBuilder, Serializable {
     @Override
     public DeploymentBuilder addBpmnModel(String resourceName, BpmnModel bpmnModel) {
         BpmnXMLConverter bpmnXMLConverter = new BpmnXMLConverter();
-        try {
-            String bpmn20Xml = new String(bpmnXMLConverter.convertToXML(bpmnModel), "UTF-8");
-            addString(resourceName, bpmn20Xml);
-        } catch (UnsupportedEncodingException e) {
-            throw new FlowableException("Error while transforming BPMN model to xml: not UTF-8 encoded", e);
-        }
+        String bpmn20Xml = new String(bpmnXMLConverter.convertToXML(bpmnModel), StandardCharsets.UTF_8);
+        addString(resourceName, bpmn20Xml);
         return this;
     }
 
@@ -159,6 +156,12 @@ public class DeploymentBuilderImpl implements DeploymentBuilder, Serializable {
     @Override
     public DeploymentBuilder key(String key) {
         deployment.setKey(key);
+        return this;
+    }
+    
+    @Override
+    public DeploymentBuilder parentDeploymentId(String parentDeploymentId) {
+        deployment.setParentDeploymentId(parentDeploymentId);
         return this;
     }
 

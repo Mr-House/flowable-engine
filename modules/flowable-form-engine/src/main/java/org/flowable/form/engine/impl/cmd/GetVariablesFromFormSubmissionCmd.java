@@ -14,17 +14,19 @@ package org.flowable.form.engine.impl.cmd;
 
 import java.io.Serializable;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
-import org.flowable.engine.common.impl.interceptor.Command;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
+import org.flowable.common.engine.impl.interceptor.Command;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
+import org.flowable.form.api.FormInfo;
 import org.flowable.form.engine.FlowableFormValidationException;
 import org.flowable.form.model.FormField;
 import org.flowable.form.model.FormFieldTypes;
-import org.flowable.form.model.FormModel;
+import org.flowable.form.model.SimpleFormModel;
 import org.joda.time.LocalDate;
 
 /**
@@ -34,17 +36,17 @@ public class GetVariablesFromFormSubmissionCmd implements Command<Map<String, Ob
 
     private static final long serialVersionUID = 1L;
 
-    protected FormModel formDefinition;
+    protected FormInfo formInfo;
     protected Map<String, Object> values;
     protected String outcome;
 
-    public GetVariablesFromFormSubmissionCmd(FormModel formDefinition, Map<String, Object> values) {
-        this.formDefinition = formDefinition;
+    public GetVariablesFromFormSubmissionCmd(FormInfo formInfo, Map<String, Object> values) {
+        this.formInfo = formInfo;
         this.values = values;
     }
 
-    public GetVariablesFromFormSubmissionCmd(FormModel formDefinition, Map<String, Object> values, String outcome) {
-        this(formDefinition, values);
+    public GetVariablesFromFormSubmissionCmd(FormInfo formInfo, Map<String, Object> values, String outcome) {
+        this(formInfo, values);
         this.outcome = outcome;
     }
 
@@ -56,7 +58,8 @@ public class GetVariablesFromFormSubmissionCmd implements Command<Map<String, Ob
         }
 
         // Loop over all form fields and see if a value was provided
-        Map<String, FormField> fieldMap = formDefinition.allFieldsAsMap();
+        SimpleFormModel formModel = (SimpleFormModel) formInfo.getFormModel();
+        Map<String, FormField> fieldMap = formModel.allFieldsAsMap();
         Map<String, Object> variables = new HashMap<>();
         for (String fieldId : fieldMap.keySet()) {
             Object variableValue = null;
@@ -79,10 +82,10 @@ public class GetVariablesFromFormSubmissionCmd implements Command<Map<String, Ob
         // Handle outcomes
         if (outcome != null) {
             String targetVariable = null;
-            if (formDefinition.getOutcomeVariableName() != null) {
-                targetVariable = formDefinition.getOutcomeVariableName();
+            if (formModel.getOutcomeVariableName() != null) {
+                targetVariable = formModel.getOutcomeVariableName();
             } else {
-                targetVariable = "form_" + formDefinition.getKey() + "_outcome";
+                targetVariable = "form_" + formModel.getKey() + "_outcome";
             }
 
             variables.put(targetVariable, outcome);
@@ -93,9 +96,9 @@ public class GetVariablesFromFormSubmissionCmd implements Command<Map<String, Ob
 
     @SuppressWarnings("unchecked")
     protected Object transformFormFieldValueToVariableValue(FormField formField, Object formFieldValue) {
-
+        
         Object result = formFieldValue;
-        if (formField.getType().equals(FormFieldTypes.DATE)) {
+        if (formField.getType().equals(FormFieldTypes.DATE) && formFieldValue instanceof String) {
             if (StringUtils.isNotEmpty((String) formFieldValue)) {
                 try {
                     result = LocalDate.parse((String) formFieldValue);
@@ -106,23 +109,26 @@ public class GetVariablesFromFormSubmissionCmd implements Command<Map<String, Ob
                 }
             }
 
+        } else if (formField.getType().equals(FormFieldTypes.DATE) && formFieldValue instanceof Date) {
+            result = new LocalDate(formFieldValue);
         } else if (formField.getType().equals(FormFieldTypes.INTEGER) && formFieldValue instanceof String) {
             String strFieldValue = (String) formFieldValue;
-            if (StringUtils.isNotEmpty(strFieldValue) && NumberUtils.isNumber(strFieldValue)) {
+            if (StringUtils.isNotEmpty(strFieldValue) && NumberUtils.isCreatable(strFieldValue)) {
                 result = Long.valueOf(strFieldValue);
 
             } else {
                 result = null;
             }
-        }
-            else if (formField.getType().equals(FormFieldTypes.DECIMAL) && formFieldValue instanceof String) {
-                String strFieldValue = (String) formFieldValue;
-                if (StringUtils.isNotEmpty(strFieldValue) && NumberUtils.isNumber(strFieldValue)) {
-                    result = Double.valueOf(strFieldValue);
+            
+        } else if (formField.getType().equals(FormFieldTypes.DECIMAL) && formFieldValue instanceof String) {
+            String strFieldValue = (String) formFieldValue;
+            if (StringUtils.isNotEmpty(strFieldValue) && NumberUtils.isCreatable(strFieldValue)) {
+                result = Double.valueOf(strFieldValue);
 
-                } else {
-                    result = null;
-                }
+            } else {
+                result = null;
+            }
+            
         } else if (formField.getType().equals(FormFieldTypes.AMOUNT) && formFieldValue instanceof String) {
             try {
                 result = Double.parseDouble((String) formFieldValue);
@@ -131,7 +137,7 @@ public class GetVariablesFromFormSubmissionCmd implements Command<Map<String, Ob
                 result = null;
             }
 
-        } else if (formField.getType().equals(FormFieldTypes.DROPDOWN)) {
+        } else if (formField.getType().equals(FormFieldTypes.DROPDOWN) || formField.getType().equals(FormFieldTypes.RADIO_BUTTONS)) {
             if (formFieldValue instanceof Map<?, ?>) {
                 result = ((Map<?, ?>) formFieldValue).get("id");
                 if (result == null) {
@@ -139,7 +145,7 @@ public class GetVariablesFromFormSubmissionCmd implements Command<Map<String, Ob
                     result = ((Map<?, ?>) formFieldValue).get("name");
                 }
             }
-
+            
         } else if (formField.getType().equals(FormFieldTypes.UPLOAD)) {
             result = (String) formFieldValue;
 
@@ -153,7 +159,7 @@ public class GetVariablesFromFormSubmissionCmd implements Command<Map<String, Ob
                 result = null;
             }
         }
-
+        
         // Default: no processing needs to be done, can be stored as-is
         return result;
     }

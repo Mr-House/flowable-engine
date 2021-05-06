@@ -42,12 +42,15 @@ public class CmmnModel {
 
     protected List<Association> associations = new ArrayList<>();
 
+    protected List<TextAnnotation> textAnnotations = new ArrayList<>();
+
     protected Map<String, Criterion> criterionMap = new LinkedHashMap<>();
     protected Map<String, String> criterionTechnicalIdMap = new HashMap<>();
 
     protected Map<String, GraphicInfo> locationMap = new LinkedHashMap<>();
     protected Map<String, GraphicInfo> labelLocationMap = new LinkedHashMap<>();
     protected Map<String, List<GraphicInfo>> flowLocationMap = new LinkedHashMap<>();
+    protected Map<String, CmmnDiEdge> edgeMap = new LinkedHashMap<>();
 
     protected Map<String, String> namespaceMap = new LinkedHashMap<>();
 
@@ -101,7 +104,7 @@ public class CmmnModel {
     public PlanItemDefinition findPlanItemDefinition(String id) {
         PlanItemDefinition foundPlanItemDefinition = null;
         for (Case caseModel : cases) {
-            foundPlanItemDefinition = caseModel.getPlanModel().findPlanItemDefinition(id);
+            foundPlanItemDefinition = caseModel.getPlanModel().findPlanItemDefinitionInStageOrUpwards(id);
             if (foundPlanItemDefinition != null) {
                 break;
             }
@@ -110,7 +113,7 @@ public class CmmnModel {
         if (foundPlanItemDefinition == null) {
             for (Case caseModel : cases) {
                 for (Stage stage : caseModel.getPlanModel().findPlanItemDefinitionsOfType(Stage.class, true)) {
-                    foundPlanItemDefinition = stage.findPlanItemDefinition(id);
+                    foundPlanItemDefinition = stage.findPlanItemDefinitionInStageOrUpwards(id);
                     if (foundPlanItemDefinition != null) {
                         break;
                     }
@@ -149,9 +152,48 @@ public class CmmnModel {
 
         return foundPlanItem;
     }
+    
+    public PlanItem findPlanItemByPlanItemDefinitionId(String id) {
+        PlanItem foundPlanItem = null;
+        for (Case caseModel : cases) {
+            foundPlanItem = caseModel.getPlanModel().findPlanItemForPlanItemDefinitionInPlanFragmentOrDownwards(id);
+            if (foundPlanItem != null) {
+                break;
+            }
+        }
+
+        if (foundPlanItem == null) {
+            for (Case caseModel : cases) {
+                for (Stage stage : caseModel.getPlanModel().findPlanItemDefinitionsOfType(Stage.class, true)) {
+                    foundPlanItem = stage.findPlanItemForPlanItemDefinitionInPlanFragmentOrDownwards(id);
+                    if (foundPlanItem != null) {
+                        break;
+                    }
+                }
+                if (foundPlanItem != null) {
+                    break;
+                }
+            }
+        }
+
+        return foundPlanItem;
+    }
 
     public void addAssociation(Association association) {
         associations.add(association);
+    }
+
+    public TextAnnotation findTextAnnotation(String id) {
+        for (TextAnnotation textAnnotation : textAnnotations) {
+            if (id.equals(textAnnotation.getId())) {
+                return textAnnotation;
+            }
+        }
+        return null;
+    }
+
+    public void addTextAnnotation(TextAnnotation textAnnotation) {
+        textAnnotations.add(textAnnotation);
     }
 
     public void addCriterion(String key, Criterion criterion) {
@@ -196,6 +238,18 @@ public class CmmnModel {
 
     public Map<String, List<GraphicInfo>> getFlowLocationMap() {
         return flowLocationMap;
+    }
+    
+    public CmmnDiEdge getEdgeInfo(String key) {
+        return edgeMap.get(key);
+    }
+    
+    public void addEdgeInfo(String key, CmmnDiEdge edgeInfo) {
+        edgeMap.put(key, edgeInfo);
+    }
+
+    public Map<String, CmmnDiEdge> getEdgeMap() {
+        return edgeMap;
     }
 
     public GraphicInfo getLabelGraphicInfo(String key) {
@@ -283,6 +337,12 @@ public class CmmnModel {
     }
     public void setAssociations(List<Association> associations) {
         this.associations = associations;
+    }
+    public List<TextAnnotation> getTextAnnotations() {
+        return textAnnotations;
+    }
+    public void setTextAnnotations(List<TextAnnotation> textAnnotations) {
+        this.textAnnotations = textAnnotations;
     }
     public void addNamespace(String prefix, String uri) {
         namespaceMap.put(prefix, uri);

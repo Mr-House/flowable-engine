@@ -11,10 +11,14 @@
         <groupId>org.flowable</groupId>
         <artifactId>flowable-root</artifactId>
         <relativePath>../..</relativePath>
-        <version>6.3.0-SNAPSHOT</version>
+        <version>6.7.0-SNAPSHOT</version>
     </parent>
 
     <dependencies>
+        <dependency>
+            <groupId>org.flowable</groupId>
+            <artifactId>flowable-dmn-api</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.flowable</groupId>
             <artifactId>flowable-cmmn-api</artifactId>
@@ -41,6 +45,26 @@
         </dependency>
         <dependency>
             <groupId>org.flowable</groupId>
+            <artifactId>flowable-idm-engine-configurator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flowable</groupId>
+            <artifactId>flowable-entitylink-service</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flowable</groupId>
+            <artifactId>flowable-event-registry</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flowable</groupId>
+            <artifactId>flowable-event-registry-configurator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flowable</groupId>
+            <artifactId>flowable-eventsubscription-service</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flowable</groupId>
             <artifactId>flowable-variable-service</artifactId>
         </dependency>
         <dependency>
@@ -53,15 +77,19 @@
         </dependency>
         <dependency>
             <groupId>org.flowable</groupId>
-            <artifactId>flowable-form-model</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.flowable</groupId>
             <artifactId>flowable-form-api</artifactId>
         </dependency>
         <dependency>
             <groupId>org.flowable</groupId>
+            <artifactId>flowable-form-model</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flowable</groupId>
             <artifactId>flowable-content-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flowable</groupId>
+            <artifactId>flowable-http-common</artifactId>
         </dependency>
         <dependency>
             <groupId>org.liquibase</groupId>
@@ -76,6 +104,24 @@
             <artifactId>slf4j-api</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-email</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-log4j12</artifactId>
             <scope>test</scope>
@@ -86,13 +132,19 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-lang3</artifactId>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <scope>provided</scope>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.javacrumbs.json-unit</groupId>
+            <artifactId>json-unit-assertj</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.h2database</groupId>
@@ -120,8 +172,29 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.flowable</groupId>
-            <artifactId>flowable-dmn-api</artifactId>
+            <groupId>org.codehaus.groovy</groupId>
+            <artifactId>groovy-jsr223</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.subethamail</groupId>
+            <artifactId>subethasmtp-wiser</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.vintage</groupId>
+            <artifactId>junit-vintage-engine</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
@@ -138,7 +211,6 @@
             com.sun*;resolution:=optional,
             javax.activation*;resolution:=optional,
             javax.persistence*;resolution:=optional,
-            org.apache.commons.codec*;resolution:=optional,
             org.apache.commons.mail*;resolution:=optional,
             org.apache.xerces*;resolution:=optional,
             org.springframework*;resolution:=optional,
@@ -150,6 +222,12 @@
 
     <build>
         <plugins>
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>${argLine} -Xmx3g</argLine>
+                </configuration>
+            </plugin>
             <plugin>
                 <artifactId>maven-jar-plugin</artifactId>
                 <configuration>
@@ -248,6 +326,30 @@
                 </plugins>
             </build>
         </profile>
+        <profile>
+            <id>cleanDb</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>drop-idm-schema</id>
+                                <phase>prepare-package</phase>
+                                <goals>
+                                    <goal>java</goal>
+                                </goals>
+                                <configuration>
+                                    <mainClass>org.flowable.cmmn.engine.impl.db.DbSchemaDrop</mainClass>
+                                    <classpathScope>test</classpathScope>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
 
         <!-- database qa profile -->
         <profile>
@@ -295,6 +397,63 @@
                                     <tasks>
                                         <echo
                                             message="dropping schema in ${database}" />
+                                        <java
+                                            classname="org.flowable.cmmn.engine.impl.db.DbSchemaDrop"
+                                            classpathref="maven.test.classpath" />
+                                    </tasks>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        
+        <profile>
+            <id>databasemssql</id>
+            <activation>
+                <property>
+                    <name>databasemssql</name>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <!-- only worked with this version, there might be
+                            a bug with antrun see http://jira.codehaus.org/browse/MANTRUN-109 -->
+                        <version>1.4</version>
+                        <executions>
+                            <execution>
+                                <id>database-test-create-schema</id>
+                                <phase>process-test-classes</phase>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                                <configuration>
+                                    <tasks>
+                                        <echo
+                                            message="updating flowable configuration to db ${databasemssql}" />
+                                        <copy
+                                            file="${basedir}/../../qa/db/flowable.mssql.cmmn.cfg.xml"
+                                            tofile="target/test-classes/flowable.cmmn.cfg.xml"
+                                            overwrite="true">
+                                            <filterset
+                                                filtersfile="${user.home}/.flowable/jdbc/build.flowable6.${databasemssql}.properties" />
+                                        </copy>
+                                    </tasks>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>database-test-drop-schema</id>
+                                <phase>prepare-package</phase>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                                <configuration>
+                                    <tasks>
+                                        <echo
+                                            message="dropping schema in ${databasemssql}" />
                                         <java
                                             classname="org.flowable.cmmn.engine.impl.db.DbSchemaDrop"
                                             classpathref="maven.test.classpath" />
@@ -373,8 +532,8 @@
             </activation>
             <dependencies>
                 <dependency>
-                    <groupId>com.oracle.jdbc</groupId>
-                    <artifactId>ojdbc7</artifactId>
+                    <groupId>com.oracle.database.jdbc</groupId>
+                    <artifactId>${oracle.jdbc.artifact}</artifactId>
                     <scope>test</scope>
                 </dependency>
             </dependencies>
@@ -390,8 +549,8 @@
             </activation>
             <dependencies>
                 <dependency>
-                    <groupId>com.oracle.jdbc</groupId>
-                    <artifactId>ojdbc7</artifactId>
+                    <groupId>com.oracle.database.jdbc</groupId>
+                    <artifactId>${oracle.jdbc.artifact}</artifactId>
                     <scope>test</scope>
                 </dependency>
             </dependencies>
@@ -407,8 +566,8 @@
             </activation>
             <dependencies>
                 <dependency>
-                    <groupId>com.oracle.jdbc</groupId>
-                    <artifactId>ojdbc7</artifactId>
+                    <groupId>com.oracle.database.jdbc</groupId>
+                    <artifactId>${oracle.jdbc.artifact}</artifactId>
                     <scope>test</scope>
                 </dependency>
             </dependencies>
@@ -424,8 +583,8 @@
             </activation>
             <dependencies>
                 <dependency>
-                    <groupId>com.ibm.db2.jcc</groupId>
-                    <artifactId>db2jcc4</artifactId>
+                    <groupId>com.ibm.db2</groupId>
+                    <artifactId>jcc</artifactId>
                     <scope>test</scope>
                 </dependency>
             </dependencies>
@@ -441,34 +600,83 @@
             </activation>
             <dependencies>
                 <dependency>
-                    <groupId>com.ibm.db2.jcc</groupId>
-                    <artifactId>db2jcc4</artifactId>
+                    <groupId>com.ibm.db2</groupId>
+                    <artifactId>jcc</artifactId>
                     <scope>test</scope>
                 </dependency>
             </dependencies>
         </profile>
 
         <profile>
-            <id>distro</id>
+            <id>mssql</id>
+            <activation>
+                <property>
+                    <name>databasemssql</name>
+                    <value>mssql</value>
+                </property>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>net.sourceforge.jtds</groupId>
+                    <artifactId>jtds</artifactId>
+                    <scope>test</scope>
+                </dependency>
+                <dependency>
+                    <groupId>com.microsoft.sqlserver</groupId>
+                    <artifactId>mssql-jdbc</artifactId>
+                    <scope>test</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <profile>
+            <id>cfghistoryasync</id>
             <build>
                 <plugins>
                     <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-source-plugin</artifactId>
-                        <version>2.1.1</version>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <version>1.4</version>
                         <executions>
                             <execution>
-                                <id>attach-sources</id>
-                                <phase>package</phase>
+                                <id>database-test-create-schema</id>
+                                <phase>process-test-classes</phase>
                                 <goals>
-                                    <goal>jar-no-fork</goal>
+                                    <goal>run</goal>
                                 </goals>
+                                <configuration>
+                                    <tasks>
+                                        <echo
+                                                message="updating flowable configuration flowable.cmmn.cfg.xml to qa/cfg/historyasync.flowable.cmmn.cfg.xml" />
+                                        <copy
+                                                file="${basedir}/../../qa/cfg/historyasync.flowable.cmmn.cfg.xml"
+                                                tofile="target/test-classes/flowable.cmmn.cfg.xml"
+                                                overwrite="true" />
+                                    </tasks>
+                                </configuration>
                             </execution>
                         </executions>
+                    </plugin>
+                    <plugin>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/AsyncCmmnHistoryTest.java</exclude>
+                                <exclude>**/CacheTaskTest.java</exclude>
+                                <exclude>**/PlanItemInjectionTest.java</exclude>
+                                <exclude>**/CmmnStandaloneTaskBuilderTest.java</exclude>
+
+                                <!-- Needs investigation -->
+                                <exclude>**/CmmnHistoryServiceDisableTaskLogTest.java</exclude>
+                                <exclude>**/CmmnHistoryServiceTaskLogTest.java</exclude>
+
+                            </excludes>
+                            <argLine>${argLine} -Xmx4g</argLine>
+                        </configuration>
                     </plugin>
                 </plugins>
             </build>
         </profile>
+
     </profiles>
 
 </project>

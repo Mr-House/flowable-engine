@@ -20,19 +20,20 @@ import org.apache.commons.lang3.StringUtils;
 import org.flowable.bpmn.model.FlowElement;
 import org.flowable.bpmn.model.MapExceptionEntry;
 import org.flowable.bpmn.model.Task;
+import org.flowable.common.engine.api.FlowableException;
+import org.flowable.common.engine.api.FlowableIllegalArgumentException;
+import org.flowable.common.engine.api.delegate.Expression;
 import org.flowable.engine.DynamicBpmnConstants;
-import org.flowable.engine.common.api.FlowableException;
-import org.flowable.engine.common.api.FlowableIllegalArgumentException;
 import org.flowable.engine.delegate.BpmnError;
 import org.flowable.engine.delegate.CustomPropertiesResolver;
 import org.flowable.engine.delegate.DelegateExecution;
 import org.flowable.engine.delegate.ExecutionListener;
-import org.flowable.engine.common.api.delegate.Expression;
+import org.flowable.engine.delegate.FutureJavaDelegate;
 import org.flowable.engine.delegate.JavaDelegate;
-import org.flowable.engine.delegate.TaskListener;
 import org.flowable.engine.delegate.TransactionDependentExecutionListener;
 import org.flowable.engine.delegate.TransactionDependentTaskListener;
 import org.flowable.engine.impl.bpmn.behavior.AbstractBpmnActivityBehavior;
+import org.flowable.engine.impl.bpmn.behavior.ServiceTaskFutureJavaDelegateActivityBehavior;
 import org.flowable.engine.impl.bpmn.behavior.ServiceTaskJavaDelegateActivityBehavior;
 import org.flowable.engine.impl.bpmn.parser.FieldDeclaration;
 import org.flowable.engine.impl.context.BpmnOverrideContext;
@@ -44,6 +45,7 @@ import org.flowable.engine.impl.delegate.invocation.TaskListenerInvocation;
 import org.flowable.engine.impl.persistence.entity.ExecutionEntity;
 import org.flowable.engine.impl.util.CommandContextUtil;
 import org.flowable.task.service.delegate.DelegateTask;
+import org.flowable.task.service.delegate.TaskListener;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -65,14 +67,17 @@ public class ClassDelegate extends AbstractClassDelegate implements TaskListener
     protected Expression skipExpression;
     protected List<MapExceptionEntry> mapExceptions;
     protected CustomPropertiesResolver customPropertiesResolverInstance;
+    protected boolean triggerable;
 
     public ClassDelegate(String className, List<FieldDeclaration> fieldDeclarations, Expression skipExpression) {
         super(className, fieldDeclarations);
         this.skipExpression = skipExpression;
     }
 
-    public ClassDelegate(String id, String className, List<FieldDeclaration> fieldDeclarations, Expression skipExpression, List<MapExceptionEntry> mapExceptions) {
+    public ClassDelegate(String id, String className, List<FieldDeclaration> fieldDeclarations, boolean triggerable, Expression skipExpression,
+                         List<MapExceptionEntry> mapExceptions) {
         this(className, fieldDeclarations, skipExpression);
+        this.triggerable = triggerable;
         this.serviceTaskId = id;
         this.mapExceptions = mapExceptions;
     }
@@ -118,11 +123,7 @@ public class ClassDelegate extends AbstractClassDelegate implements TaskListener
     public void notify(DelegateTask delegateTask) {
         TaskListener taskListenerInstance = getTaskListenerInstance();
 
-        try {
-            CommandContextUtil.getProcessEngineConfiguration().getDelegateInterceptor().handleInvocation(new TaskListenerInvocation(taskListenerInstance, delegateTask));
-        } catch (Exception e) {
-            throw new FlowableException("Exception while invoking TaskListener: " + e.getMessage(), e);
-        }
+        CommandContextUtil.getProcessEngineConfiguration().getDelegateInterceptor().handleInvocation(new TaskListenerInvocation(taskListenerInstance, delegateTask));
     }
 
     @Override
@@ -136,7 +137,7 @@ public class ClassDelegate extends AbstractClassDelegate implements TaskListener
         if (delegateInstance instanceof ExecutionListener) {
             return (ExecutionListener) delegateInstance;
         } else if (delegateInstance instanceof JavaDelegate) {
-            return new ServiceTaskJavaDelegateActivityBehavior((JavaDelegate) delegateInstance, skipExpression);
+            return new ServiceTaskJavaDelegateActivityBehavior((JavaDelegate) delegateInstance, triggerable, skipExpression);
         } else {
             throw new FlowableIllegalArgumentException(delegateInstance.getClass().getName() + " doesn't implement " + ExecutionListener.class + " nor " + JavaDelegate.class);
         }
@@ -201,8 +202,9 @@ public class ClassDelegate extends AbstractClassDelegate implements TaskListener
         } catch (BpmnError error) {
             ErrorPropagation.propagateError(error, execution);
         } catch (RuntimeException e) {
-            if (!ErrorPropagation.mapException(e, (ExecutionEntity) execution, mapExceptions))
+            if (!ErrorPropagation.mapException(e, (ExecutionEntity) execution, mapExceptions)) {
                 throw e;
+            }
         }
     }
 
@@ -215,6 +217,9 @@ public class ClassDelegate extends AbstractClassDelegate implements TaskListener
 
         if (activityBehaviorInstance instanceof TriggerableActivityBehavior) {
             ((TriggerableActivityBehavior) activityBehaviorInstance).trigger(execution, signalName, signalData);
+            if (triggerable) {
+                leave(execution);
+            }
         } else {
             throw new FlowableException("signal() can only be called on a " + TriggerableActivityBehavior.class.getName() + " instance");
         }
@@ -254,9 +259,11 @@ public class ClassDelegate extends AbstractClassDelegate implements TaskListener
         if (delegateInstance instanceof ActivityBehavior) {
             return determineBehaviour((ActivityBehavior) delegateInstance);
         } else if (delegateInstance instanceof JavaDelegate) {
-            return determineBehaviour(new ServiceTaskJavaDelegateActivityBehavior((JavaDelegate) delegateInstance, skipExpression));
+            return determineBehaviour(new ServiceTaskJavaDelegateActivityBehavior((JavaDelegate) delegateInstance, triggerable, skipExpression));
+        } else if (delegateInstance instanceof FutureJavaDelegate) {
+            return determineBehaviour(new ServiceTaskFutureJavaDelegateActivityBehavior((FutureJavaDelegate<?>) delegateInstance, triggerable, skipExpression, mapExceptions));
         } else {
-            throw new FlowableIllegalArgumentException(delegateInstance.getClass().getName() + " doesn't implement " + JavaDelegate.class.getName() + " nor " + ActivityBehavior.class.getName());
+            throw new FlowableIllegalArgumentException(delegateInstance.getClass().getName() + " doesn't implement " + JavaDelegate.class.getName() + ", " + FutureJavaDelegate.class.getName() + " nor " + ActivityBehavior.class.getName());
         }
     }
 

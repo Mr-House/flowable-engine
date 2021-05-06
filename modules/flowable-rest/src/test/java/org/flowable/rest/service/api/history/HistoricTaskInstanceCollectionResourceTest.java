@@ -13,6 +13,8 @@
 
 package org.flowable.rest.service.api.history;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -32,6 +34,7 @@ import org.flowable.engine.test.Deployment;
 import org.flowable.rest.service.BaseSpringRestTestCase;
 import org.flowable.rest.service.api.RestUrls;
 import org.flowable.task.api.Task;
+import org.junit.Test;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -49,6 +52,7 @@ public class HistoricTaskInstanceCollectionResourceTest extends BaseSpringRestTe
     /**
      * Test querying historic task instance. GET history/historic-task-instances
      */
+    @Test
     @Deployment
     public void testQueryTaskInstances() throws Exception {
         HashMap<String, Object> processVariables = new HashMap<>();
@@ -99,6 +103,10 @@ public class HistoricTaskInstanceCollectionResourceTest extends BaseSpringRestTe
         assertResultsPresentInDataResponse(url + "?processInstanceId=" + processInstance.getId(), 2, task.getId());
 
         assertResultsPresentInDataResponse(url + "?processInstanceId=" + processInstance2.getId(), 1, task2.getId());
+        
+        assertResultsPresentInDataResponse(url + "?processInstanceIdWithChildren=" + processInstance.getId(), 2, task.getId());
+        
+        assertResultsPresentInDataResponse(url + "?processInstanceIdWithChildren=nonexisting", 0);
 
         assertResultsPresentInDataResponse(url + "?taskAssignee=kermit", 2, task2.getId());
 
@@ -111,6 +119,10 @@ public class HistoricTaskInstanceCollectionResourceTest extends BaseSpringRestTe
         assertResultsPresentInDataResponse(url + "?taskOwnerLike=" + encode("t%"), 1, task.getId());
 
         assertResultsPresentInDataResponse(url + "?taskInvolvedUser=test", 1, task.getId());
+
+        assertResultsPresentInDataResponse(url + "?taskDefinitionKey=processTask2", 1, task.getId());
+
+        assertResultsPresentInDataResponse(url + "?taskDefinitionKeys=processTask,processTask2", 3, task.getId(), task1.getId(), task2.getId());
 
         assertResultsPresentInDataResponse(url + "?dueDateAfter=" + dateFormat.format(new GregorianCalendar(2010, 0, 1).getTime()), 1, task.getId());
 
@@ -138,6 +150,23 @@ public class HistoricTaskInstanceCollectionResourceTest extends BaseSpringRestTe
         // Tenant id like
         assertResultsPresentInDataResponse(url + "?tenantIdLike=" + encode("%enant"), 1, task2.getId());
         assertResultsPresentInDataResponse(url + "?tenantIdLike=anotherTenant", 0);
+
+    }
+
+    @Test
+    @Deployment
+    public void testQueryTaskInstancesWithCandidateGroup() throws Exception {
+        ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("oneTaskProcess");
+        Task task = taskService.createTaskQuery().processInstanceId(processInstance.getId()).singleResult();
+
+        String url = RestUrls.createRelativeResourceUrl(RestUrls.URL_HISTORIC_TASK_INSTANCES);
+
+        assertResultsPresentInDataResponse(url + "?taskCandidateGroup=sales", 1, task.getId());
+        assertEmptyResultsPresentInDataResponse(url + "?taskCandidateGroup=notExisting");
+
+        taskService.claim(task.getId(), "johnDoe");
+        assertEmptyResultsPresentInDataResponse(url + "?taskCandidateGroup=sales");
+        assertResultsPresentInDataResponse(url + "?taskCandidateGroup=sales&ignoreTaskAssignee=true", 1, task.getId());
     }
 
     protected void assertResultsPresentInDataResponse(String url, int numberOfResultsExpected, String... expectedTaskIds) throws JsonProcessingException, IOException {
@@ -148,7 +177,7 @@ public class HistoricTaskInstanceCollectionResourceTest extends BaseSpringRestTe
         // Check status and size
         JsonNode dataNode = objectMapper.readTree(response.getEntity().getContent()).get("data");
         closeResponse(response);
-        assertEquals(numberOfResultsExpected, dataNode.size());
+        assertThat(dataNode).hasSize(numberOfResultsExpected);
 
         // Check presence of ID's
         if (expectedTaskIds != null) {
@@ -158,7 +187,7 @@ public class HistoricTaskInstanceCollectionResourceTest extends BaseSpringRestTe
                 String id = it.next().get("id").textValue();
                 toBeFound.remove(id);
             }
-            assertTrue("Not all entries have been found in result, missing: " + StringUtils.join(toBeFound, ", "), toBeFound.isEmpty());
+            assertThat(toBeFound).as("Not all entries have been found in result, missing: " + StringUtils.join(toBeFound, ", ")).isEmpty();
         }
     }
 }

@@ -13,6 +13,26 @@
 
 package org.flowable.rest.service.api.repository;
 
+import static org.flowable.common.rest.api.PaginateListUtil.paginateList;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.flowable.common.engine.api.query.QueryProperty;
+import org.flowable.common.rest.api.DataResponse;
+import org.flowable.engine.impl.ModelQueryProperty;
+import org.flowable.engine.repository.Model;
+import org.flowable.engine.repository.ModelQuery;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
@@ -21,22 +41,6 @@ import io.swagger.annotations.ApiParam;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 import io.swagger.annotations.Authorization;
-import org.flowable.engine.common.api.query.QueryProperty;
-import org.flowable.engine.impl.ModelQueryProperty;
-import org.flowable.engine.repository.Model;
-import org.flowable.engine.repository.ModelQuery;
-import org.flowable.rest.api.DataResponse;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * @author Frederik Heremans
@@ -63,7 +67,7 @@ public class ModelCollectionResource extends BaseModelResource {
             @ApiImplicitParam(name = "id", dataType = "string", value = "Only return models with the given version.", paramType = "query"),
             @ApiImplicitParam(name = "category", dataType = "string", value = "Only return models with the given category.", paramType = "query"),
             @ApiImplicitParam(name = "categoryLike", dataType = "string", value = "Only return models with a category like the given name.", paramType = "query"),
-            @ApiImplicitParam(name = "categoryNotEquals", dataType = "string", value = "Only return models which don’t have the given category.", paramType = "query"),
+            @ApiImplicitParam(name = "categoryNotEquals", dataType = "string", value = "Only return models which do not have the given category.", paramType = "query"),
             @ApiImplicitParam(name = "name", dataType = "string", value = "Only return models with the given name.", paramType = "query"),
             @ApiImplicitParam(name = "nameLike", dataType = "string", value = "Only return models with a name like the given name.", paramType = "query"),
             @ApiImplicitParam(name = "key", dataType = "string", value = "Only return models with the given key.", paramType = "query"),
@@ -137,7 +141,12 @@ public class ModelCollectionResource extends BaseModelResource {
                 modelQuery.modelWithoutTenantId();
             }
         }
-        return new ModelsPaginateList(restResponseFactory).paginateList(allRequestParams, modelQuery, "id", allowedSortProperties);
+        
+        if (restApiInterceptor != null) {
+            restApiInterceptor.accessModelInfoWithQuery(modelQuery);
+        }
+        
+        return paginateList(allRequestParams, modelQuery, "id", allowedSortProperties, restResponseFactory::createModelResponseList);
     }
 
     @ApiOperation(value = "Create a model", tags = {
@@ -155,9 +164,14 @@ public class ModelCollectionResource extends BaseModelResource {
         model.setName(modelRequest.getName());
         model.setVersion(modelRequest.getVersion());
         model.setTenantId(modelRequest.getTenantId());
+        
+        if (restApiInterceptor != null) {
+            restApiInterceptor.createModel(model, modelRequest);
+        }
 
         repositoryService.saveModel(model);
         response.setStatus(HttpStatus.CREATED.value());
         return restResponseFactory.createModelResponse(model);
     }
+
 }

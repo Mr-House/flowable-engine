@@ -22,9 +22,9 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.flowable.engine.common.api.FlowableIllegalArgumentException;
+import org.flowable.common.engine.api.FlowableIllegalArgumentException;
+import org.flowable.common.rest.exception.FlowableConflictException;
 import org.flowable.engine.runtime.Execution;
-import org.flowable.rest.exception.FlowableConflictException;
 import org.flowable.rest.service.api.engine.variable.RestVariable;
 import org.flowable.rest.service.api.engine.variable.RestVariable.RestVariableScope;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,7 +42,6 @@ public class BaseVariableCollectionResource extends BaseExecutionVariableResourc
     protected ObjectMapper objectMapper;
 
     protected List<RestVariable> processVariables(Execution execution, String scope, int variableType) {
-        List<RestVariable> result = new ArrayList<>();
         Map<String, RestVariable> variableMap = new HashMap<>();
 
         // Check if it's a valid execution to get the variables for
@@ -61,7 +60,7 @@ public class BaseVariableCollectionResource extends BaseExecutionVariableResourc
         }
 
         // Get unique variables from map
-        result.addAll(variableMap.values());
+        List<RestVariable> result = new ArrayList<>(variableMap.values());
         return result;
     }
 
@@ -95,7 +94,7 @@ public class BaseVariableCollectionResource extends BaseExecutionVariableResourc
             }
 
             if (inputVariables == null || inputVariables.size() == 0) {
-                throw new FlowableIllegalArgumentException("Request didn't contain a list of variables to create.");
+                throw new FlowableIllegalArgumentException("Request did not contain a list of variables to create.");
             }
 
             RestVariableScope sharedScope = null;

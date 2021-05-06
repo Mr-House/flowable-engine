@@ -14,7 +14,7 @@ package org.flowable.form.engine.impl.persistence.entity.data;
 
 import java.util.List;
 
-import org.flowable.engine.common.impl.persistence.entity.data.DataManager;
+import org.flowable.common.engine.impl.persistence.entity.data.DataManager;
 import org.flowable.form.engine.impl.persistence.entity.FormResourceEntity;
 
 /**
@@ -23,6 +23,8 @@ import org.flowable.form.engine.impl.persistence.entity.FormResourceEntity;
 public interface FormResourceDataManager extends DataManager<FormResourceEntity> {
 
     void deleteResourcesByDeploymentId(String deploymentId);
+
+    void deleteResourcesByName(String name);
 
     FormResourceEntity findResourceByDeploymentIdAndResourceName(String deploymentId, String resourceName);
 

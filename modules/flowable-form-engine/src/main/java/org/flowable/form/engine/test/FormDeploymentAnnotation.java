@@ -50,6 +50,8 @@ import java.lang.annotation.RetentionPolicy;
 public @interface FormDeploymentAnnotation {
 
     /** Specify resources that make up the process definition. */
-    public String[] resources() default {};
+    String[] resources() default {};
+    
+    String tenantId() default "";
 
 }

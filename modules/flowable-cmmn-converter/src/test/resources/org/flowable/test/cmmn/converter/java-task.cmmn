@@ -15,7 +15,8 @@
             <planItem id="planItemTaskB" definitionRef="taskB">
                 <entryCriterion id="criterion" sentryRef="sentryTaskB" />
             </planItem>
-            
+            <planItem id="planItemTaskC" definitionRef="taskC" />
+
             <sentry id="sentryTaskB">
                 <planItemOnPart id="onPart1" sourceRef="planItemTaskA">
                     <standardEvent>complete</standardEvent>
@@ -23,7 +24,7 @@
             </sentry>
             
             <task id="taskA" name="A" flowable:type="java" flowable:class="org.flowable.TestJavaDelegate" flowable:resultVariableName="result" />
-            <task id="taskB" name="B" flowable:type="java" flowable:delegateExpression="${testJavaDelegate}">
+            <task id="taskB" name="B" flowable:type="java" flowable:delegateExpression="${testJavaDelegate}" flowable:async="true" flowable:exclusive="true">
                 <extensionElements>
                     <flowable:field name="fieldA" stringValue="test" />
                     <flowable:field name="fieldB" expression="test" />
@@ -33,9 +34,11 @@
                     <flowable:field name="fieldD">
                         <expression>test</expression>
                     </flowable:field>
+                    <flowable:taskTest>hello</flowable:taskTest>
                 </extensionElements>
             </task>
-            
+            <task id="taskC" name="C" flowable:type="java" flowable:expression="${'test'}" flowable:storeResultVariableAsTransient="true" flowable:resultVariableName="transientResult"/>
+
         </casePlanModel>
     </case>
     

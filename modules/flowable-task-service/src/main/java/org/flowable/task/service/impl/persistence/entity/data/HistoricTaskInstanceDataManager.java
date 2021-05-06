@@ -15,7 +15,7 @@ package org.flowable.task.service.impl.persistence.entity.data;
 import java.util.List;
 import java.util.Map;
 
-import org.flowable.engine.common.impl.persistence.entity.data.DataManager;
+import org.flowable.common.engine.impl.persistence.entity.data.DataManager;
 import org.flowable.task.api.history.HistoricTaskInstance;
 import org.flowable.task.service.impl.HistoricTaskInstanceQueryImpl;
 import org.flowable.task.service.impl.persistence.entity.HistoricTaskInstanceEntity;
@@ -42,4 +42,9 @@ public interface HistoricTaskInstanceDataManager extends DataManager<HistoricTas
 
     long findHistoricTaskInstanceCountByNativeQuery(Map<String, Object> parameterMap);
 
+    void deleteHistoricTaskInstances(HistoricTaskInstanceQueryImpl historicTaskInstanceQuery);
+    
+    void deleteHistoricTaskInstancesForNonExistingProcessInstances();
+    
+    void deleteHistoricTaskInstancesForNonExistingCaseInstances();
 }

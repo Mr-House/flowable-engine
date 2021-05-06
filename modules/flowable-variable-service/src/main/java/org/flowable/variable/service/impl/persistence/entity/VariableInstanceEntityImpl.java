@@ -17,7 +17,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
-import org.flowable.engine.common.impl.persistence.entity.AbstractEntity;
+import org.flowable.common.engine.api.scope.ScopeTypes;
+import org.flowable.common.engine.impl.persistence.entity.ByteArrayRef;
 import org.flowable.variable.api.types.ValueFields;
 import org.flowable.variable.api.types.VariableType;
 
@@ -26,7 +27,7 @@ import org.flowable.variable.api.types.VariableType;
  * @author Marcus Klimstra (CGI)
  * @author Joram Barrez
  */
-public class VariableInstanceEntityImpl extends AbstractEntity implements VariableInstanceEntity, ValueFields, Serializable {
+public class VariableInstanceEntityImpl extends AbstractVariableServiceEntity implements VariableInstanceEntity, ValueFields, Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -46,7 +47,7 @@ public class VariableInstanceEntityImpl extends AbstractEntity implements Variab
     protected Double doubleValue;
     protected String textValue;
     protected String textValue2;
-    protected VariableByteArrayRef byteArrayRef;
+    protected ByteArrayRef byteArrayRef;
 
     protected Object cachedValue;
     protected boolean forcedUpdate;
@@ -105,23 +106,23 @@ public class VariableInstanceEntityImpl extends AbstractEntity implements Variab
     @Override
     public byte[] getBytes() {
         ensureByteArrayRefInitialized();
-        return byteArrayRef.getBytes();
+        return byteArrayRef.getBytes(getEngineType());
     }
 
     @Override
     public void setBytes(byte[] bytes) {
         ensureByteArrayRefInitialized();
-        byteArrayRef.setValue("var-" + name, bytes);
+        byteArrayRef.setValue("var-" + name, bytes, getEngineType());
     }
 
     @Override
-    public VariableByteArrayRef getByteArrayRef() {
+    public ByteArrayRef getByteArrayRef() {
         return byteArrayRef;
     }
 
     protected void ensureByteArrayRefInitialized() {
         if (byteArrayRef == null) {
-            byteArrayRef = new VariableByteArrayRef();
+            byteArrayRef = new ByteArrayRef();
         }
     }
 
@@ -287,6 +288,14 @@ public class VariableInstanceEntityImpl extends AbstractEntity implements Variab
 
     // misc methods ///////////////////////////////////////////////////////////////
 
+    protected String getEngineType() {
+        if (StringUtils.isNotEmpty(scopeType)) {
+            return scopeType;
+        } else {
+            return ScopeTypes.BPMN;
+        }
+    }
+    
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();

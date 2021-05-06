@@ -1,6 +1,18 @@
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.flowable.crystalball.simulator.impl.replay;
 
-import static org.junit.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -9,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import org.flowable.common.engine.api.delegate.event.FlowableEvent;
 import org.flowable.crystalball.simulator.ReplaySimulationRun;
 import org.flowable.crystalball.simulator.SimulationDebugger;
 import org.flowable.crystalball.simulator.SimulationEvent;
@@ -24,16 +37,13 @@ import org.flowable.crystalball.simulator.impl.playback.PlaybackUserTaskComplete
 import org.flowable.engine.ProcessEngines;
 import org.flowable.engine.RuntimeService;
 import org.flowable.engine.TaskService;
-import org.flowable.engine.common.api.delegate.event.FlowableEvent;
-import org.flowable.engine.common.api.delegate.event.FlowableEventListener;
 import org.flowable.engine.delegate.TaskListener;
 import org.flowable.engine.impl.ProcessEngineImpl;
 import org.flowable.engine.impl.cfg.ProcessEngineConfigurationImpl;
-import org.flowable.engine.parse.BpmnParseHandler;
 import org.flowable.engine.runtime.ProcessInstance;
 import org.flowable.task.api.Task;
 import org.flowable.variable.service.impl.el.NoExecutionVariableScope;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author martin.grofcik
@@ -76,21 +86,21 @@ public class ReplayRunTest {
         simRun.init(new NoExecutionVariableScope());
 
         // original process is finished - there should not be any running process instance/task
-        assertEquals(0, runtimeService.createProcessInstanceQuery().processDefinitionKey(USERTASK_PROCESS).count());
-        assertEquals(0, taskService.createTaskQuery().taskDefinitionKey("userTask").count());
+        assertThat(runtimeService.createProcessInstanceQuery().processDefinitionKey(USERTASK_PROCESS).count()).isZero();
+        assertThat(taskService.createTaskQuery().taskDefinitionKey("userTask").count()).isZero();
 
         simRun.step();
 
         // replay process was started
-        assertEquals(1, runtimeService.createProcessInstanceQuery().processDefinitionKey(USERTASK_PROCESS).count());
+        assertThat(runtimeService.createProcessInstanceQuery().processDefinitionKey(USERTASK_PROCESS).count()).isEqualTo(1);
         // there should be one task
-        assertEquals(1, taskService.createTaskQuery().taskDefinitionKey("userTask").count());
+        assertThat(taskService.createTaskQuery().taskDefinitionKey("userTask").count()).isEqualTo(1);
 
         simRun.step();
 
         // userTask was completed - replay process was finished
-        assertEquals(0, runtimeService.createProcessInstanceQuery().processDefinitionKey(USERTASK_PROCESS).count());
-        assertEquals(0, taskService.createTaskQuery().taskDefinitionKey("userTask").count());
+        assertThat(runtimeService.createProcessInstanceQuery().processDefinitionKey(USERTASK_PROCESS).count()).isZero();
+        assertThat(taskService.createTaskQuery().taskDefinitionKey("userTask").count()).isZero();
 
         simRun.close();
         processEngine.close();
@@ -109,10 +119,10 @@ public class ReplayRunTest {
         ProcessEngineConfigurationImpl configuration = new org.flowable.engine.impl.cfg.StandaloneInMemProcessEngineConfiguration();
         configuration.setHistory("full").setDatabaseSchemaUpdate("true");
         configuration.setCustomDefaultBpmnParseHandlers(
-                Collections.<BpmnParseHandler>singletonList(
+                Collections.singletonList(
                         new AddListenerUserTaskParseHandler(TaskListener.EVENTNAME_CREATE,
                                 new UserTaskExecutionListener(USER_TASK_COMPLETED_EVENT_TYPE, USER_TASK_COMPLETED_EVENT_TYPE, listener.getSimulationEvents()))));
-        configuration.setEventListeners(Collections.<FlowableEventListener>singletonList(listener));
+        configuration.setEventListeners(Collections.singletonList(listener));
         return configuration;
     }
 

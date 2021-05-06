@@ -44,28 +44,28 @@ import org.activiti.engine.runtime.JobProcessorContext;
 import org.activiti.engine.runtime.ProcessInstanceBuilder;
 import org.flowable.bpmn.model.BpmnModel;
 import org.flowable.bpmn.model.MapExceptionEntry;
+import org.flowable.common.engine.api.FlowableClassLoadingException;
+import org.flowable.common.engine.api.FlowableException;
+import org.flowable.common.engine.api.FlowableIllegalArgumentException;
+import org.flowable.common.engine.api.FlowableObjectNotFoundException;
+import org.flowable.common.engine.api.FlowableOptimisticLockingException;
+import org.flowable.common.engine.api.delegate.event.FlowableEvent;
+import org.flowable.common.engine.api.repository.EngineResource;
+import org.flowable.common.engine.impl.identity.Authentication;
+import org.flowable.common.engine.impl.runtime.Clock;
 import org.flowable.compatibility.wrapper.Flowable5AttachmentWrapper;
 import org.flowable.compatibility.wrapper.Flowable5CommentWrapper;
 import org.flowable.compatibility.wrapper.Flowable5DeploymentWrapper;
 import org.flowable.compatibility.wrapper.Flowable5ProcessInstanceWrapper;
-import org.flowable.engine.common.api.FlowableClassLoadingException;
-import org.flowable.engine.common.api.FlowableException;
-import org.flowable.engine.common.api.FlowableIllegalArgumentException;
-import org.flowable.engine.common.api.FlowableObjectNotFoundException;
-import org.flowable.engine.common.api.FlowableOptimisticLockingException;
-import org.flowable.engine.common.api.delegate.event.FlowableEvent;
-import org.flowable.engine.common.api.repository.EngineResource;
-import org.flowable.engine.common.impl.identity.Authentication;
-import org.flowable.engine.common.impl.javax.el.PropertyNotFoundException;
-import org.flowable.engine.common.runtime.Clock;
+import org.flowable.compatibility.wrapper.Flowable5TaskFormDataWrapper;
 import org.flowable.engine.compatibility.Flowable5CompatibilityHandler;
 import org.flowable.engine.delegate.BpmnError;
 import org.flowable.engine.delegate.DelegateExecution;
 import org.flowable.engine.form.StartFormData;
+import org.flowable.engine.form.TaskFormData;
 import org.flowable.engine.impl.cmd.AddIdentityLinkCmd;
 import org.flowable.engine.impl.persistence.deploy.ProcessDefinitionCacheEntry;
 import org.flowable.engine.impl.persistence.entity.DeploymentEntity;
-import org.flowable.engine.impl.persistence.entity.SignalEventSubscriptionEntity;
 import org.flowable.engine.impl.repository.DeploymentBuilderImpl;
 import org.flowable.engine.impl.util.CommandContextUtil;
 import org.flowable.engine.repository.Deployment;
@@ -73,6 +73,7 @@ import org.flowable.engine.repository.ProcessDefinition;
 import org.flowable.engine.runtime.ProcessInstance;
 import org.flowable.engine.task.Attachment;
 import org.flowable.engine.task.Comment;
+import org.flowable.eventsubscription.service.impl.persistence.entity.SignalEventSubscriptionEntity;
 import org.flowable.job.api.Job;
 import org.flowable.job.service.impl.persistence.entity.JobEntity;
 import org.flowable.task.service.impl.persistence.entity.TaskEntity;
@@ -724,6 +725,17 @@ public class DefaultFlowable5CompatibilityHandler implements Flowable5Compatibil
             return null;
         }
     }
+    
+    @Override
+    public TaskFormData getTaskFormData(String taskId) {
+        try {
+            return new Flowable5TaskFormDataWrapper(getProcessEngine().getFormService().getTaskFormData(taskId));
+            
+        } catch (org.activiti.engine.ActivitiException e) {
+            handleActivitiException(e);
+            return null;
+        }
+    }
 
     @Override
     public void submitTaskFormData(String taskId, Map<String, String> properties, boolean completeTask) {
@@ -1154,12 +1166,23 @@ public class DefaultFlowable5CompatibilityHandler implements Flowable5Compatibil
             throw new FlowableIllegalArgumentException(e.getMessage(), e.getCause());
 
         } else {
-            if (e.getCause() instanceof org.activiti.engine.ActivitiClassLoadingException) {
+            if (e.getCause() instanceof org.activiti.engine.delegate.BpmnError) {
+                org.activiti.engine.delegate.BpmnError activiti5BpmnError = (org.activiti.engine.delegate.BpmnError) e.getCause();
+                throw new BpmnError(activiti5BpmnError.getErrorCode(), activiti5BpmnError.getMessage());
+                
+            } else if (e.getCause() instanceof org.flowable.engine.delegate.BpmnError) {
+                org.flowable.engine.delegate.BpmnError activiti5BpmnError = (org.flowable.engine.delegate.BpmnError) e.getCause();
+                throw new BpmnError(activiti5BpmnError.getErrorCode(), activiti5BpmnError.getMessage());
+                
+            } else if (e.getCause() instanceof org.activiti.engine.ActivitiClassLoadingException) {
                 throw new FlowableException(e.getMessage(), new FlowableClassLoadingException(e.getCause().getMessage(), e.getCause().getCause()));
-            } else if (e.getCause() instanceof org.activiti.engine.impl.javax.el.PropertyNotFoundException) {
-                throw new FlowableException(e.getMessage(), new PropertyNotFoundException(e.getCause().getMessage(), e.getCause().getCause()));
+                
             } else if (e.getCause() instanceof org.activiti.engine.ActivitiException) {
                 throw new FlowableException(e.getMessage(), new FlowableException(e.getCause().getMessage(), e.getCause().getCause()));
+                
+            } else if (e.getCause() instanceof FlowableException) {
+                throw (FlowableException) e.getCause();
+                
             } else {
                 throw new FlowableException(e.getMessage(), e.getCause());
             }

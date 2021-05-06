@@ -16,6 +16,7 @@ import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
 import org.flowable.cmmn.editor.json.converter.CmmnJsonConverter.CmmnModelIdHelper;
+import org.flowable.cmmn.editor.json.converter.util.ListenerConverterUtil;
 import org.flowable.cmmn.model.BaseElement;
 import org.flowable.cmmn.model.CaseElement;
 import org.flowable.cmmn.model.CmmnModel;
@@ -40,13 +41,14 @@ public class HttpTaskJsonConverter extends BaseCmmnJsonConverter {
         convertersToBpmnMap.put(STENCIL_TASK_HTTP, HttpTaskJsonConverter.class);
     }
 
+    @Override
     protected String getStencilId(BaseElement baseElement) {
         return STENCIL_TASK_HTTP;
     }
 
     @Override
     protected CaseElement convertJsonToElement(JsonNode elementNode, JsonNode modelNode, ActivityProcessor processor,
-                    BaseElement parentElement, Map<String, JsonNode> shapeMap, CmmnModel cmmnModel, CmmnModelIdHelper cmmnModelIdHelper) {
+                    BaseElement parentElement, Map<String, JsonNode> shapeMap, CmmnModel cmmnModel, CmmnJsonConverterContext converterContext, CmmnModelIdHelper cmmnModelIdHelper) {
 
         HttpServiceTask task = new HttpServiceTask();
 
@@ -54,10 +56,16 @@ public class HttpTaskJsonConverter extends BaseCmmnJsonConverter {
             task.setImplementation(CmmnJsonConverterUtil.getPropertyValueAsString(PROPERTY_SERVICETASK_CLASS, elementNode));
         }
 
-        addField("requestMethod", PROPERTY_HTTPTASK_REQ_METHOD, elementNode, task);
+        String parallelInSameTransaction = getPropertyValueAsString(PROPERTY_HTTPTASK_PARALLEL_IN_SAME_TRANSACTION, elementNode);
+        if (StringUtils.isNotEmpty(parallelInSameTransaction)) {
+            task.setParallelInSameTransaction(Boolean.parseBoolean(parallelInSameTransaction));
+        }
+
+        addField("requestMethod", PROPERTY_HTTPTASK_REQ_METHOD, "GET", elementNode, task);
         addField("requestUrl", PROPERTY_HTTPTASK_REQ_URL, elementNode, task);
         addField("requestHeaders", PROPERTY_HTTPTASK_REQ_HEADERS, elementNode, task);
         addField("requestBody", PROPERTY_HTTPTASK_REQ_BODY, elementNode, task);
+        addField("requestBodyEncoding", PROPERTY_HTTPTASK_REQ_BODY_ENCODING, elementNode, task);
         addField("requestTimeout", PROPERTY_HTTPTASK_REQ_TIMEOUT, elementNode, task);
         addField("disallowRedirects", PROPERTY_HTTPTASK_REQ_DISALLOW_REDIRECTS, elementNode, task);
         addField("failStatusCodes", PROPERTY_HTTPTASK_REQ_FAIL_STATUS_CODES, elementNode, task);
@@ -67,12 +75,17 @@ public class HttpTaskJsonConverter extends BaseCmmnJsonConverter {
         addField("saveRequestVariables", PROPERTY_HTTPTASK_SAVE_REQUEST_VARIABLES, elementNode, task);
         addField("saveResponseParameters", PROPERTY_HTTPTASK_SAVE_RESPONSE_PARAMETERS, elementNode, task);
         addField("resultVariablePrefix", PROPERTY_HTTPTASK_RESULT_VARIABLE_PREFIX, elementNode, task);
+        addField("saveResponseParametersTransient", PROPERTY_HTTPTASK_SAVE_RESPONSE_TRANSIENT, elementNode, task);
+        addField("saveResponseVariableAsJson", PROPERTY_HTTPTASK_SAVE_RESPONSE_AS_JSON, elementNode, task);
+
+        ListenerConverterUtil.convertJsonToLifeCycleListeners(elementNode, task);
 
         return task;
     }
 
     @Override
-    protected void convertElementToJson(ObjectNode elementNode, ObjectNode propertiesNode, ActivityProcessor processor, BaseElement baseElement, CmmnModel cmmnModel) {
+    protected void convertElementToJson(ObjectNode elementNode, ObjectNode propertiesNode, ActivityProcessor processor,
+            BaseElement baseElement, CmmnModel cmmnModel, CmmnJsonConverterContext converterContext) {
 
     }
 

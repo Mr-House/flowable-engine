@@ -28,9 +28,9 @@ import javax.inject.Scope;
 
 import org.flowable.cdi.FlowableCdiException;
 import org.flowable.cdi.impl.util.ProgrammaticBeanLookup;
+import org.flowable.common.engine.api.FlowableException;
+import org.flowable.common.engine.impl.context.Context;
 import org.flowable.engine.RuntimeService;
-import org.flowable.engine.common.api.FlowableException;
-import org.flowable.engine.common.impl.context.Context;
 import org.flowable.engine.impl.context.ExecutionContext;
 import org.flowable.engine.impl.persistence.entity.ExecutionEntity;
 import org.flowable.engine.runtime.Execution;
@@ -40,7 +40,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Default implementation of the business process association manager. Uses a fallback-strategy to associate the process instance with the "broadest" active scope, starting with the conversation.
- * <p/>
+ * <p>
  * Subclass in order to implement custom association schemes and association with custom scopes.
  *
  * @author Daniel Meyer

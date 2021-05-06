@@ -13,10 +13,11 @@
 
 package org.flowable.rest.service.api.history;
 
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 
-import org.flowable.rest.api.PaginateRequest;
+import org.flowable.common.rest.api.PaginateRequest;
 import org.flowable.rest.service.api.engine.variable.QueryVariable;
 
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
@@ -27,54 +28,62 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo.Id;
  */
 public class HistoricTaskInstanceQueryRequest extends PaginateRequest {
 
-    private String taskId;
-    private String processInstanceId;
-    private String processBusinessKey;
-    private String processBusinessKeyLike;
-    private String processDefinitionId;
-    private String processDefinitionKey;
-    private String processDefinitionKeyLike;
-    private String processDefinitionName;
-    private String processDefinitionNameLike;
-    private String executionId;
-    private String taskName;
-    private String taskNameLike;
-    private String taskDescription;
-    private String taskDescriptionLike;
-    private String taskDefinitionKey;
-    private String taskDefinitionKeyLike;
-    private String taskCategory;
-    private String taskDeleteReason;
-    private String taskDeleteReasonLike;
-    private String taskAssignee;
-    private String taskAssigneeLike;
-    private String taskOwner;
-    private String taskOwnerLike;
-    private String taskInvolvedUser;
-    private Integer taskPriority;
-    private Integer taskMinPriority;
-    private Integer taskMaxPriority;
-    private Boolean finished;
-    private Boolean processFinished;
-    private String parentTaskId;
-    private Date dueDate;
-    private Date dueDateAfter;
-    private Date dueDateBefore;
-    private Boolean withoutDueDate;
-    private Date taskCreatedOn;
-    private Date taskCreatedBefore;
-    private Date taskCreatedAfter;
-    private Date taskCompletedOn;
-    private Date taskCompletedBefore;
-    private Date taskCompletedAfter;
-    private Boolean includeTaskLocalVariables;
-    private Boolean includeProcessVariables;
-    private List<QueryVariable> taskVariables;
-    private List<QueryVariable> processVariables;
-    private String tenantId;
-    private String tenantIdLike;
-    private Boolean withoutTenantId;
-    private String taskCandidateGroup;
+    protected String taskId;
+    protected String processInstanceId;
+    protected String processInstanceIdWithChildren;
+    protected String processBusinessKey;
+    protected String processBusinessKeyLike;
+    protected String processDefinitionId;
+    protected String processDefinitionKey;
+    protected String processDefinitionKeyLike;
+    protected String processDefinitionName;
+    protected String processDefinitionNameLike;
+    protected String executionId;
+    protected String taskName;
+    protected String taskNameLike;
+    protected String taskDescription;
+    protected String taskDescriptionLike;
+    protected String taskDefinitionKey;
+    protected String taskDefinitionKeyLike;
+    protected Collection<String> taskDefinitionKeys;
+    protected String taskCategory;
+    protected String taskDeleteReason;
+    protected String taskDeleteReasonLike;
+    protected String taskAssignee;
+    protected String taskAssigneeLike;
+    protected String taskOwner;
+    protected String taskOwnerLike;
+    protected String taskInvolvedUser;
+    protected Integer taskPriority;
+    protected Integer taskMinPriority;
+    protected Integer taskMaxPriority;
+    protected Boolean finished;
+    protected Boolean processFinished;
+    protected String parentTaskId;
+    protected Date dueDate;
+    protected Date dueDateAfter;
+    protected Date dueDateBefore;
+    protected Boolean withoutDueDate;
+    protected Date taskCreatedOn;
+    protected Date taskCreatedBefore;
+    protected Date taskCreatedAfter;
+    protected Date taskCompletedOn;
+    protected Date taskCompletedBefore;
+    protected Date taskCompletedAfter;
+    protected Boolean includeTaskLocalVariables;
+    protected Boolean includeProcessVariables;
+    protected List<QueryVariable> taskVariables;
+    protected List<QueryVariable> processVariables;
+    protected String scopeDefinitionId;
+    protected String scopeId;
+    protected String scopeType;
+    protected String propagatedStageInstanceId;
+    protected String tenantId;
+    protected String tenantIdLike;
+    protected Boolean withoutTenantId;
+    protected Boolean withoutDeleteReason;
+    protected String taskCandidateGroup;
+    protected boolean ignoreTaskAssignee;
 
     public String getTaskId() {
         return taskId;
@@ -90,6 +99,14 @@ public class HistoricTaskInstanceQueryRequest extends PaginateRequest {
 
     public void setProcessInstanceId(String processInstanceId) {
         this.processInstanceId = processInstanceId;
+    }
+
+    public String getProcessInstanceIdWithChildren() {
+        return processInstanceIdWithChildren;
+    }
+
+    public void setProcessInstanceIdWithChildren(String processInstanceIdWithChildren) {
+        this.processInstanceIdWithChildren = processInstanceIdWithChildren;
     }
 
     public String getProcessBusinessKey() {
@@ -202,6 +219,14 @@ public class HistoricTaskInstanceQueryRequest extends PaginateRequest {
 
     public void setTaskDefinitionKeyLike(String taskDefinitionKeyLike) {
         this.taskDefinitionKeyLike = taskDefinitionKeyLike;
+    }
+
+    public Collection<String> getTaskDefinitionKeys() {
+        return taskDefinitionKeys;
+    }
+
+    public void setTaskDefinitionKeys(Collection<String> taskDefinitionKeys) {
+        this.taskDefinitionKeys = taskDefinitionKeys;
     }
 
     public String getTaskCategory() {
@@ -430,6 +455,38 @@ public class HistoricTaskInstanceQueryRequest extends PaginateRequest {
         this.processVariables = processVariables;
     }
 
+    public String getScopeDefinitionId() {
+        return scopeDefinitionId;
+    }
+
+    public void setScopeDefinitionId(String scopeDefinitionId) {
+        this.scopeDefinitionId = scopeDefinitionId;
+    }
+
+    public String getScopeId() {
+        return scopeId;
+    }
+
+    public void setScopeId(String scopeId) {
+        this.scopeId = scopeId;
+    }
+
+    public String getScopeType() {
+        return scopeType;
+    }
+
+    public void setScopeType(String scopeType) {
+        this.scopeType = scopeType;
+    }
+
+    public String getPropagatedStageInstanceId() {
+        return propagatedStageInstanceId;
+    }
+
+    public void setPropagatedStageInstanceId(String propagatedStageInstanceId) {
+        this.propagatedStageInstanceId = propagatedStageInstanceId;
+    }
+
     public String getTenantId() {
         return tenantId;
     }
@@ -454,6 +511,14 @@ public class HistoricTaskInstanceQueryRequest extends PaginateRequest {
         this.withoutTenantId = withoutTenantId;
     }
 
+    public Boolean getWithoutDeleteReason() {
+        return withoutDeleteReason;
+    }
+
+    public void setWithoutDeleteReason(Boolean withoutDeleteReason) {
+        this.withoutDeleteReason = withoutDeleteReason;
+    }
+
     public String getTaskCandidateGroup() {
         return taskCandidateGroup;
     }
@@ -462,4 +527,11 @@ public class HistoricTaskInstanceQueryRequest extends PaginateRequest {
         this.taskCandidateGroup = taskCandidateGroup;
     }
 
+    public boolean isIgnoreTaskAssignee() {
+        return ignoreTaskAssignee;
+    }
+
+    public void setIgnoreTaskAssignee(boolean ignoreTaskAssignee) {
+        this.ignoreTaskAssignee = ignoreTaskAssignee;
+    }
 }

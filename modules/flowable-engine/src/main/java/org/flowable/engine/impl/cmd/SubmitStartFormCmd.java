@@ -16,8 +16,9 @@ package org.flowable.engine.impl.cmd;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.flowable.engine.common.impl.interceptor.CommandContext;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
 import org.flowable.engine.compatibility.Flowable5CompatibilityHandler;
+import org.flowable.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.flowable.engine.impl.form.FormHandlerHelper;
 import org.flowable.engine.impl.form.StartFormHandler;
 import org.flowable.engine.impl.persistence.entity.ExecutionEntity;
@@ -52,7 +53,8 @@ public class SubmitStartFormCmd extends NeedsActiveProcessDefinitionCmd<ProcessI
         }
 
         ExecutionEntity processInstance = null;
-        ProcessInstanceHelper processInstanceHelper = CommandContextUtil.getProcessEngineConfiguration(commandContext).getProcessInstanceHelper();
+        ProcessEngineConfigurationImpl processEngineConfiguration = CommandContextUtil.getProcessEngineConfiguration(commandContext);
+        ProcessInstanceHelper processInstanceHelper = processEngineConfiguration.getProcessInstanceHelper();
 
         // TODO: backwards compatibility? Only create the process instance and not start it? How?
         if (businessKey != null) {
@@ -61,9 +63,10 @@ public class SubmitStartFormCmd extends NeedsActiveProcessDefinitionCmd<ProcessI
             processInstance = (ExecutionEntity) processInstanceHelper.createProcessInstance(processDefinition, null, null, null, null);
         }
 
-        CommandContextUtil.getHistoryManager(commandContext).recordFormPropertiesSubmitted(processInstance.getExecutions().get(0), properties, null);
+        CommandContextUtil.getHistoryManager(commandContext).recordFormPropertiesSubmitted(processInstance.getExecutions().get(0), properties, null,
+                processEngineConfiguration.getClock().getCurrentTime());
 
-        FormHandlerHelper formHandlerHelper = CommandContextUtil.getProcessEngineConfiguration(commandContext).getFormHandlerHelper();
+        FormHandlerHelper formHandlerHelper = processEngineConfiguration.getFormHandlerHelper();
         StartFormHandler startFormHandler = formHandlerHelper.getStartFormHandler(commandContext, processDefinition);
         startFormHandler.submitFormProperties(properties, processInstance);
 

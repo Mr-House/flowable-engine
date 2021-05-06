@@ -12,6 +12,7 @@
  */
 package org.flowable.content.engine.test;
 
+import org.flowable.content.api.ContentManagementService;
 import org.flowable.content.api.ContentService;
 import org.flowable.content.engine.ContentEngine;
 import org.flowable.content.engine.ContentEngineConfiguration;
@@ -19,9 +20,9 @@ import org.junit.Before;
 import org.junit.Rule;
 
 /**
- * Parent class for internal Flowable Form tests.
+ * Parent class for internal Flowable Content tests.
  * 
- * Boots up a dmn engine and caches it.
+ * Boots up a content engine and caches it.
  * 
  * When using H2 and the default schema name, it will also boot the H2 webapp (reachable with browser on http://localhost:8082/)
  * 
@@ -38,15 +39,17 @@ public class AbstractFlowableContentTest {
     protected static ContentEngine cachedContentEngine;
     protected ContentEngineConfiguration contentEngineConfiguration;
     protected ContentService contentService;
+    protected ContentManagementService contentManagementService;
 
     @Before
-    public void initFormEngine() {
+    public void initContentEngine() {
         if (cachedContentEngine == null) {
             cachedContentEngine = rule.getContentEngine();
         }
 
         this.contentEngineConfiguration = cachedContentEngine.getContentEngineConfiguration();
         this.contentService = cachedContentEngine.getContentService();
+        this.contentManagementService = cachedContentEngine.getContentManagementService();
     }
 
 }

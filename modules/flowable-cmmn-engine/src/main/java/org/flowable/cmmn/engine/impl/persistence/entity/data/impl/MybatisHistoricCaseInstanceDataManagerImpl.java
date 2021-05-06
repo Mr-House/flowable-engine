@@ -15,6 +15,7 @@ package org.flowable.cmmn.engine.impl.persistence.entity.data.impl;
 import java.util.List;
 
 import org.flowable.cmmn.api.history.HistoricCaseInstance;
+import org.flowable.cmmn.api.runtime.CaseInstance;
 import org.flowable.cmmn.engine.CmmnEngineConfiguration;
 import org.flowable.cmmn.engine.impl.history.HistoricCaseInstanceQueryImpl;
 import org.flowable.cmmn.engine.impl.persistence.entity.HistoricCaseInstanceEntity;
@@ -45,6 +46,11 @@ public class MybatisHistoricCaseInstanceDataManagerImpl extends AbstractCmmnData
     }
     
     @Override
+    public HistoricCaseInstanceEntity create(CaseInstance caseInstance) {
+        return new HistoricCaseInstanceEntityImpl(caseInstance);
+    }
+
+    @Override
     public List<HistoricCaseInstanceEntity> findHistoricCaseInstancesByCaseDefinitionId(String caseDefinitionId) {
         return getList("selectHistoricCaseInstancesByCaseDefinitionId", caseDefinitionId, historicCaseInstanceByCaseDefinitionIdMatcher, true);
     }
@@ -52,17 +58,28 @@ public class MybatisHistoricCaseInstanceDataManagerImpl extends AbstractCmmnData
     @Override
     @SuppressWarnings("unchecked")
     public List<HistoricCaseInstance> findByCriteria(HistoricCaseInstanceQueryImpl query) {
-        return getDbSqlSession().selectList("selectHistoricCaseInstancesByQueryCriteria", query);
+        return getDbSqlSession().selectList("selectHistoricCaseInstancesByQueryCriteria", query, getManagedEntityClass());
     }
 
     @Override
     public long countByCriteria(HistoricCaseInstanceQueryImpl query) {
         return (Long) getDbSqlSession().selectOne("selectHistoricCaseInstanceCountByQueryCriteria", query);
     }
-    
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<HistoricCaseInstance> findWithVariablesByQueryCriteria(HistoricCaseInstanceQueryImpl historicCaseInstanceQuery) {
+        return getDbSqlSession().selectList("selectHistoricCaseInstancesWithVariablesByQueryCriteria", historicCaseInstanceQuery, getManagedEntityClass());
+    }
+
+
     @Override
     public void deleteByCaseDefinitionId(String caseDefinitionId) {
         getDbSqlSession().delete("deleteHistoricCaseInstanceByCaseDefinitionId", caseDefinitionId, getManagedEntityClass());
     }
 
+    @Override
+    public void deleteHistoricCaseInstances(HistoricCaseInstanceQueryImpl historicCaseInstanceQuery) {
+        getDbSqlSession().delete("bulkDeleteHistoricCaseInstances", historicCaseInstanceQuery, getManagedEntityClass());
+    }
 }

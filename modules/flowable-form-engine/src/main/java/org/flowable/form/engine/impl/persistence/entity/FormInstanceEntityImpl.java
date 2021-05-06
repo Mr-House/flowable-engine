@@ -17,14 +17,13 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.flowable.engine.common.impl.persistence.entity.AbstractEntityNoRevision;
 import org.flowable.form.engine.FormEngineConfiguration;
 
 /**
  * @author Joram Barrez
  * @author Tijs Rademakers
  */
-public class FormInstanceEntityImpl extends AbstractEntityNoRevision implements FormInstanceEntity, Serializable {
+public class FormInstanceEntityImpl extends AbstractFormEngineNoRevisionEntity implements FormInstanceEntity, Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -145,6 +144,9 @@ public class FormInstanceEntityImpl extends AbstractEntityNoRevision implements 
 
     @Override
     public String getFormValuesId() {
+        if (formValuesId == null && resourceRef != null) {
+            formValuesId = resourceRef.getId();
+        }
         return formValuesId;
     }
 
@@ -187,7 +189,7 @@ public class FormInstanceEntityImpl extends AbstractEntityNoRevision implements 
 
     @Override
     public String toString() {
-        return "SubmittedFormEntity[" + id + "]";
+        return "FormInstanceEntity[" + id + "]";
     }
 
 }

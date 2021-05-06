@@ -14,19 +14,17 @@ package org.flowable.identitylink.service.impl;
 
 import java.util.List;
 
+import org.flowable.common.engine.impl.service.CommonServiceImpl;
 import org.flowable.identitylink.service.HistoricIdentityLinkService;
 import org.flowable.identitylink.service.IdentityLinkServiceConfiguration;
 import org.flowable.identitylink.service.impl.persistence.entity.HistoricIdentityLinkEntity;
+import org.flowable.identitylink.service.impl.persistence.entity.HistoricIdentityLinkEntityManager;
 
 /**
  * @author Tom Baeyens
  * @author Joram Barrez
  */
-public class HistoricIdentityLinkServiceImpl extends ServiceImpl implements HistoricIdentityLinkService {
-
-    public HistoricIdentityLinkServiceImpl() {
-
-    }
+public class HistoricIdentityLinkServiceImpl extends CommonServiceImpl<IdentityLinkServiceConfiguration> implements HistoricIdentityLinkService {
 
     public HistoricIdentityLinkServiceImpl(IdentityLinkServiceConfiguration identityLinkServiceConfiguration) {
         super(identityLinkServiceConfiguration);
@@ -45,6 +43,16 @@ public class HistoricIdentityLinkServiceImpl extends ServiceImpl implements Hist
     @Override
     public List<HistoricIdentityLinkEntity> findHistoricIdentityLinksByProcessInstanceId(String processInstanceId) {
         return getHistoricIdentityLinkEntityManager().findHistoricIdentityLinksByProcessInstanceId(processInstanceId);
+    }
+    
+    @Override
+    public List<HistoricIdentityLinkEntity> findHistoricIdentityLinksByScopeIdAndScopeType(String scopeId, String scopeType) {
+        return getHistoricIdentityLinkEntityManager().findHistoricIdentityLinksByScopeIdAndScopeType(scopeId, scopeType);
+    }
+    
+    @Override
+    public List<HistoricIdentityLinkEntity> findHistoricIdentityLinksBySubScopeIdAndScopeType(String subScopeId, String scopeType) {
+        return getHistoricIdentityLinkEntityManager().findHistoricIdentityLinksBySubScopeIdAndScopeType(subScopeId, scopeType);
     }
     
     @Override
@@ -75,5 +83,29 @@ public class HistoricIdentityLinkServiceImpl extends ServiceImpl implements Hist
     @Override
     public void deleteHistoricIdentityLinksByTaskId(String taskId) {
         getHistoricIdentityLinkEntityManager().deleteHistoricIdentityLinksByTaskId(taskId);
+    }
+    
+    @Override
+    public void deleteHistoricIdentityLinksByScopeIdAndScopeType(String scopeId, String scopeType) {
+        getHistoricIdentityLinkEntityManager().deleteHistoricIdentityLinksByScopeIdAndScopeType(scopeId, scopeType);
+    }
+    
+    @Override
+    public void deleteHistoricProcessIdentityLinksForNonExistingInstances() {
+        getHistoricIdentityLinkEntityManager().deleteHistoricProcessIdentityLinksForNonExistingInstances();
+    }
+    
+    @Override
+    public void deleteHistoricCaseIdentityLinksForNonExistingInstances() {
+        getHistoricIdentityLinkEntityManager().deleteHistoricCaseIdentityLinksForNonExistingInstances();
+    }
+    
+    @Override
+    public void deleteHistoricTaskIdentityLinksForNonExistingInstances() {
+        getHistoricIdentityLinkEntityManager().deleteHistoricTaskIdentityLinksForNonExistingInstances();
+    }
+
+    public HistoricIdentityLinkEntityManager getHistoricIdentityLinkEntityManager() {
+        return configuration.getHistoricIdentityLinkEntityManager();
     }
 }

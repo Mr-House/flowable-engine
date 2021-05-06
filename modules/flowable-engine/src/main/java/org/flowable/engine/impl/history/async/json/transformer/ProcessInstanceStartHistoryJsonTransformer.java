@@ -12,22 +12,32 @@
  */
 package org.flowable.engine.impl.history.async.json.transformer;
 
-import org.flowable.engine.common.api.delegate.event.FlowableEngineEventType;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
+import static org.flowable.job.service.impl.history.async.util.AsyncHistoryJsonUtil.getDateFromJson;
+import static org.flowable.job.service.impl.history.async.util.AsyncHistoryJsonUtil.getStringFromJson;
+
+import java.util.Collections;
+import java.util.List;
+
+import org.flowable.common.engine.api.delegate.event.FlowableEngineEventType;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
 import org.flowable.engine.delegate.event.impl.FlowableEventBuilder;
+import org.flowable.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.flowable.engine.impl.history.async.HistoryJsonConstants;
 import org.flowable.engine.impl.persistence.entity.HistoricProcessInstanceEntity;
 import org.flowable.engine.impl.persistence.entity.HistoricProcessInstanceEntityManager;
-import org.flowable.engine.impl.util.CommandContextUtil;
 import org.flowable.job.service.impl.persistence.entity.HistoryJobEntity;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class ProcessInstanceStartHistoryJsonTransformer extends AbstractHistoryJsonTransformer {
 
+    public ProcessInstanceStartHistoryJsonTransformer(ProcessEngineConfigurationImpl processEngineConfiguration) {
+        super(processEngineConfiguration);
+    }
+    
     @Override
-    public String getType() {
-        return HistoryJsonConstants.TYPE_PROCESS_INSTANCE_START;
+    public List<String> getTypes() {
+        return Collections.singletonList(HistoryJsonConstants.TYPE_PROCESS_INSTANCE_START);
     }
 
     @Override
@@ -37,7 +47,7 @@ public class ProcessInstanceStartHistoryJsonTransformer extends AbstractHistoryJ
 
     @Override
     public void transformJson(HistoryJobEntity job, ObjectNode historicalData, CommandContext commandContext) {
-        HistoricProcessInstanceEntityManager historicProcessInstanceEntityManager = CommandContextUtil.getHistoricProcessInstanceEntityManager(commandContext);
+        HistoricProcessInstanceEntityManager historicProcessInstanceEntityManager = processEngineConfiguration.getHistoricProcessInstanceEntityManager();
 
         String id = getStringFromJson(historicalData, "id");
         HistoricProcessInstanceEntity historicProcessInstance = historicProcessInstanceEntityManager.findById(id);
@@ -59,6 +69,9 @@ public class ProcessInstanceStartHistoryJsonTransformer extends AbstractHistoryJ
             historicProcessInstance.setSuperProcessInstanceId(getStringFromJson(historicalData, HistoryJsonConstants.SUPER_PROCESS_INSTANCE_ID));
             historicProcessInstance.setCallbackId(getStringFromJson(historicalData, HistoryJsonConstants.CALLBACK_ID));
             historicProcessInstance.setCallbackType(getStringFromJson(historicalData, HistoryJsonConstants.CALLBACK_TYPE));
+            historicProcessInstance.setReferenceId(getStringFromJson(historicalData, HistoryJsonConstants.REFERENCE_ID));
+            historicProcessInstance.setReferenceType(getStringFromJson(historicalData, HistoryJsonConstants.REFERENCE_TYPE));
+            historicProcessInstance.setPropagatedStageInstanceId(getStringFromJson(historicalData, HistoryJsonConstants.PROPAGATED_STAGE_INSTANCE_ID));
             historicProcessInstance.setTenantId(getStringFromJson(historicalData, HistoryJsonConstants.TENANT_ID));
     
             historicProcessInstanceEntityManager.insert(historicProcessInstance, false);

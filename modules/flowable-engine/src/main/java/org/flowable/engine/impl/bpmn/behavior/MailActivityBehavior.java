@@ -1,9 +1,9 @@
 /* Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -14,8 +14,11 @@
 package org.flowable.engine.impl.bpmn.behavior;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -28,11 +31,16 @@ import org.apache.commons.mail.EmailException;
 import org.apache.commons.mail.HtmlEmail;
 import org.apache.commons.mail.MultiPartEmail;
 import org.apache.commons.mail.SimpleEmail;
-import org.flowable.engine.cfg.MailServerInfo;
-import org.flowable.engine.common.api.FlowableException;
-import org.flowable.engine.common.api.FlowableIllegalArgumentException;
+import org.flowable.bpmn.model.FlowElement;
+import org.flowable.bpmn.model.ServiceTask;
+import org.flowable.common.engine.api.FlowableException;
+import org.flowable.common.engine.api.FlowableIllegalArgumentException;
+import org.flowable.common.engine.api.delegate.Expression;
+import org.flowable.common.engine.impl.cfg.mail.MailServerInfo;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
+import org.flowable.content.api.ContentItem;
 import org.flowable.engine.delegate.DelegateExecution;
-import org.flowable.engine.common.api.delegate.Expression;
+import org.flowable.engine.impl.bpmn.helper.SkipExpressionUtil;
 import org.flowable.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.flowable.engine.impl.util.CommandContextUtil;
 import org.slf4j.Logger;
@@ -42,6 +50,7 @@ import org.slf4j.LoggerFactory;
  * @author Joram Barrez
  * @author Frederik Heremans
  * @author Tim Stephenson
+ * @author Filip Hrisafov
  */
 public class MailActivityBehavior extends AbstractBpmnActivityBehavior {
 
@@ -49,12 +58,13 @@ public class MailActivityBehavior extends AbstractBpmnActivityBehavior {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MailActivityBehavior.class);
 
-    private static final Class<?>[] ALLOWED_ATT_TYPES = new Class<?>[] { File.class, File[].class, String.class, String[].class, DataSource.class, DataSource[].class };
+    private static final String NEWLINE_REGEX = "\\r?\\n";
 
     protected Expression to;
     protected Expression from;
     protected Expression cc;
     protected Expression bcc;
+    protected Expression headers;
     protected Expression subject;
     protected Expression text;
     protected Expression textVar;
@@ -67,42 +77,70 @@ public class MailActivityBehavior extends AbstractBpmnActivityBehavior {
 
     @Override
     public void execute(DelegateExecution execution) {
-
-        boolean doIgnoreException = Boolean.parseBoolean(getStringFromField(ignoreException, execution));
-        String exceptionVariable = getStringFromField(exceptionVariableName, execution);
-        Email email = null;
-        try {
-            String toStr = getStringFromField(to, execution);
-            String fromStr = getStringFromField(from, execution);
-            String ccStr = getStringFromField(cc, execution);
-            String bccStr = getStringFromField(bcc, execution);
-            String subjectStr = getStringFromField(subject, execution);
-            String textStr = textVar == null ? getStringFromField(text, execution) : getStringFromField(getExpression(execution, textVar), execution);
-            String htmlStr = htmlVar == null ? getStringFromField(html, execution) : getStringFromField(getExpression(execution, htmlVar), execution);
-            String charSetStr = getStringFromField(charset, execution);
-            List<File> files = new LinkedList<>();
-            List<DataSource> dataSources = new LinkedList<>();
-            getFilesFromFields(attachments, execution, files, dataSources);
-
-            email = createEmail(textStr, htmlStr, attachmentsExist(files, dataSources));
-            addTo(email, toStr);
-            setFrom(email, fromStr, execution.getTenantId());
-            addCc(email, ccStr);
-            addBcc(email, bccStr);
-            setSubject(email, subjectStr);
-            setMailServerProperties(email, execution.getTenantId());
-            setCharset(email, charSetStr);
-            attach(email, files, dataSources);
-
-            email.send();
-
-        } catch (FlowableException e) {
-            handleException(execution, e.getMessage(), e, doIgnoreException, exceptionVariable);
-        } catch (EmailException e) {
-            handleException(execution, "Could not send e-mail in execution " + execution.getId(), e, doIgnoreException, exceptionVariable);
+        FlowElement flowElement = execution.getCurrentFlowElement();
+        boolean isSkipExpressionEnabled = false;
+        String skipExpressionText = null;
+        CommandContext commandContext = CommandContextUtil.getCommandContext();
+        if (flowElement instanceof ServiceTask) {
+            ServiceTask serviceTask = (ServiceTask) flowElement;
+            skipExpressionText = serviceTask.getSkipExpression();
+            isSkipExpressionEnabled = SkipExpressionUtil.isSkipExpressionEnabled(skipExpressionText, flowElement.getId(), execution, commandContext);
+        }
+        
+        if (!isSkipExpressionEnabled || !SkipExpressionUtil.shouldSkipFlowElement(skipExpressionText, flowElement.getId(), execution, commandContext)) {
+            boolean doIgnoreException = Boolean.parseBoolean(getStringFromField(ignoreException, execution));
+            String exceptionVariable = getStringFromField(exceptionVariableName, execution);
+            Email email = null;
+            try {
+                String headersStr = getStringFromField(headers, execution);
+                String toStr = getStringFromField(to, execution);
+                String fromStr = getStringFromField(from, execution);
+                String ccStr = getStringFromField(cc, execution);
+                String bccStr = getStringFromField(bcc, execution);
+                String subjectStr = getStringFromField(subject, execution);
+                String textStr = textVar == null ? getStringFromField(text, execution) : getStringFromField(getExpression(execution, textVar), execution);
+                String htmlStr = htmlVar == null ? getStringFromField(html, execution) : getStringFromField(getExpression(execution, htmlVar), execution);
+                String charSetStr = getStringFromField(charset, execution);
+                List<File> files = new LinkedList<>();
+                List<DataSource> dataSources = new LinkedList<>();
+                getFilesFromFields(attachments, execution, files, dataSources);
+    
+                email = createEmail(textStr, htmlStr, attachmentsExist(files, dataSources));
+                addHeader(email, headersStr);
+                addTo(email, toStr, execution.getTenantId());
+                setFrom(email, fromStr, execution.getTenantId());
+                addCc(email, ccStr, execution.getTenantId());
+                addBcc(email, bccStr, execution.getTenantId());
+                setSubject(email, subjectStr);
+                setMailServerProperties(email, execution.getTenantId());
+                setCharset(email, charSetStr);
+                attach(email, files, dataSources);
+    
+                email.send();
+    
+            } catch (FlowableException e) {
+                handleException(execution, e.getMessage(), e, doIgnoreException, exceptionVariable);
+            } catch (EmailException e) {
+                handleException(execution, "Could not send e-mail in execution " + execution.getId(), e, doIgnoreException, exceptionVariable);
+            }
         }
 
         leave(execution);
+    }
+
+    protected void addHeader(Email email, String headersStr) {
+        if (headersStr == null) {
+            return;
+        }
+        for (String headerEntry : headersStr.split(NEWLINE_REGEX)) {
+            String[] split = headerEntry.split(":");
+            if (split.length != 2) {
+                throw new FlowableIllegalArgumentException("When using email headers name and value must be defined colon separated. (e.g. X-Attribute: value");
+            }
+            String name = split[0].trim();
+            String value = split[1].trim();
+            email.addHeader(name, value);
+        }
     }
 
     private boolean attachmentsExist(List<File> files, List<DataSource> dataSources) {
@@ -156,8 +194,16 @@ public class MailActivityBehavior extends AbstractBpmnActivityBehavior {
         }
     }
 
-    protected void addTo(Email email, String to) {
-        String[] tos = splitAndTrim(to);
+    protected void addTo(Email email, String to, String tenantId) {
+        if (to == null) {
+            // To has to be set, otherwise it can fallback to the forced To and then it won't be noticed early on
+            throw new FlowableException("No recipient could be found for sending email");
+        }
+        String newTo = getForceTo(tenantId);
+        if (newTo == null) {
+            newTo = to;
+        }
+        String[] tos = splitAndTrim(newTo);
         if (tos != null) {
             for (String t : tos) {
                 try {
@@ -197,8 +243,16 @@ public class MailActivityBehavior extends AbstractBpmnActivityBehavior {
         }
     }
 
-    protected void addCc(Email email, String cc) {
-        String[] ccs = splitAndTrim(cc);
+    protected void addCc(Email email, String cc, String tenantId) {
+        if (cc == null) {
+            return;
+        }
+
+        String newCc = getForceTo(tenantId);
+        if (newCc == null) {
+            newCc = cc;
+        }
+        String[] ccs = splitAndTrim(newCc);
         if (ccs != null) {
             for (String c : ccs) {
                 try {
@@ -210,8 +264,15 @@ public class MailActivityBehavior extends AbstractBpmnActivityBehavior {
         }
     }
 
-    protected void addBcc(Email email, String bcc) {
-        String[] bccs = splitAndTrim(bcc);
+    protected void addBcc(Email email, String bcc, String tenantId) {
+        if (bcc == null) {
+            return;
+        }
+        String newBcc = getForceTo(tenantId);
+        if (newBcc == null) {
+            newBcc = bcc;
+        }
+        String[] bccs = splitAndTrim(newBcc);
         if (bccs != null) {
             for (String b : bccs) {
                 try {
@@ -260,6 +321,7 @@ public class MailActivityBehavior extends AbstractBpmnActivityBehavior {
                 email.setHostName(host);
 
                 email.setSmtpPort(mailServerInfo.getMailServerPort());
+                email.setSslSmtpPort(Integer.toString(mailServerInfo.getMailServerSSLPort()));
 
                 email.setSSLOnConnect(mailServerInfo.isMailServerUseSSL());
                 email.setStartTLSEnabled(mailServerInfo.isMailServerUseTLS());
@@ -288,6 +350,7 @@ public class MailActivityBehavior extends AbstractBpmnActivityBehavior {
 
                 int port = processEngineConfiguration.getMailServerPort();
                 email.setSmtpPort(port);
+                email.setSslSmtpPort(Integer.toString(processEngineConfiguration.getMailServerSSLPort()));
 
                 email.setSSLOnConnect(processEngineConfiguration.getMailServerUseSSL());
                 email.setStartTLSEnabled(processEngineConfiguration.getMailServerUseTLS());
@@ -336,52 +399,70 @@ public class MailActivityBehavior extends AbstractBpmnActivityBehavior {
         return null;
     }
 
-    private void getFilesFromFields(Expression expression, DelegateExecution execution, List<File> files, List<DataSource> dataSources) {
-        Object value = checkAllowedTypes(expression, execution);
+    protected void getFilesFromFields(Expression expression, DelegateExecution execution, List<File> files, List<DataSource> dataSources) {
+
+        if (expression == null) {
+            return;
+        }
+
+        Object value = expression.getValue(execution);
         if (value != null) {
-            if (value instanceof File) {
-                files.add((File) value);
-            } else if (value instanceof String) {
-                files.add(new File((String) value));
-            } else if (value instanceof File[]) {
-                Collections.addAll(files, (File[]) value);
-            } else if (value instanceof String[]) {
-                String[] paths = (String[]) value;
-                for (String path : paths) {
-                    files.add(new File(path));
-                }
-            } else if (value instanceof DataSource) {
-                dataSources.add((DataSource) value);
-            } else if (value instanceof DataSource[]) {
-                for (DataSource ds : (DataSource[]) value) {
-                    if (ds != null) {
-                        dataSources.add(ds);
+
+            if (value instanceof Collection) {
+                Collection collection = (Collection) value;
+                if (!collection.isEmpty()) {
+                    for (Object object : collection) {
+                        addExpressionValueToAttachments(object, files, dataSources);
                     }
                 }
+
+            } else {
+                addExpressionValueToAttachments(value, files, dataSources);
+
             }
-        }
-        for (Iterator<File> it = files.iterator(); it.hasNext();) {
-            File file = it.next();
-            if (!fileExists(file)) {
-                it.remove();
-            }
+
+            files.removeIf(file -> !fileExists(file));
         }
     }
 
-    private Object checkAllowedTypes(Expression expression, DelegateExecution execution) {
-        if (expression == null) {
-            return null;
-        }
-        Object value = expression.getValue(execution);
-        if (value == null) {
-            return null;
-        }
-        for (Class<?> allowedType : ALLOWED_ATT_TYPES) {
-            if (allowedType.isInstance(value)) {
-                return value;
+    protected void addExpressionValueToAttachments(Object value, List<File> files, List<DataSource> dataSources) {
+        if (value instanceof File) {
+            files.add((File) value);
+
+        } else if (value instanceof String) {
+            files.add(new File((String) value));
+
+        } else if (value instanceof File[]) {
+            Collections.addAll(files, (File[]) value);
+
+        } else if (value instanceof String[]) {
+            String[] paths = (String[]) value;
+            for (String path : paths) {
+                files.add(new File(path));
             }
+
+        } else if (value instanceof DataSource) {
+            dataSources.add((DataSource) value);
+
+        } else if (value instanceof DataSource[]) {
+            for (DataSource ds : (DataSource[]) value) {
+                if (ds != null) {
+                    dataSources.add(ds);
+                }
+            }
+
+        } else if (value instanceof ContentItem) {
+            dataSources.add(new ContentItemDataSourceWrapper((ContentItem) value));
+
+        } else if (value instanceof ContentItem[]) {
+            for (ContentItem contentItem : (ContentItem[]) value) {
+                dataSources.add(new ContentItemDataSourceWrapper(contentItem));
+            }
+
+        } else {
+            throw new FlowableException("Invalid attachment type: " + value.getClass());
+
         }
-        throw new FlowableException("Invalid attachment type: " + value.getClass());
     }
 
     protected boolean fileExists(File file) {
@@ -407,4 +488,53 @@ public class MailActivityBehavior extends AbstractBpmnActivityBehavior {
             }
         }
     }
+
+    protected String getForceTo(String tenantId) {
+        String forceTo = null;
+        if (tenantId != null && tenantId.length() > 0) {
+            Map<String, MailServerInfo> mailServers = CommandContextUtil.getProcessEngineConfiguration().getMailServers();
+            if (mailServers != null && mailServers.containsKey(tenantId)) {
+                MailServerInfo mailServerInfo = mailServers.get(tenantId);
+                forceTo = mailServerInfo.getMailServerForceTo();
+            }
+        }
+
+        if (forceTo == null) {
+            forceTo = CommandContextUtil.getProcessEngineConfiguration().getMailServerForceTo();
+        }
+
+        return forceTo;
+    }
+
+    public static class ContentItemDataSourceWrapper implements DataSource {
+
+        protected ContentItem contentItem;
+
+        public ContentItemDataSourceWrapper(ContentItem contentItem) {
+            this.contentItem = contentItem;
+        }
+
+        @Override
+        public InputStream getInputStream() throws IOException {
+            return CommandContextUtil.getContentService().getContentItemData(contentItem.getId());
+        }
+
+        @Override
+        public OutputStream getOutputStream() throws IOException {
+            // Not needed for mail attachment
+            return null;
+        }
+
+        @Override
+        public String getContentType() {
+            return contentItem.getMimeType();
+        }
+
+        @Override
+        public String getName() {
+            return contentItem.getName();
+        }
+
+    }
+
 }

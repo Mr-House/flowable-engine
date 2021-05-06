@@ -28,6 +28,10 @@ public interface HistoricIdentityLinkService {
     List<HistoricIdentityLinkEntity> findHistoricIdentityLinksByTaskId(String taskId);
     
     List<HistoricIdentityLinkEntity> findHistoricIdentityLinksByProcessInstanceId(String processInstanceId);
+    
+    List<HistoricIdentityLinkEntity> findHistoricIdentityLinksByScopeIdAndScopeType(String scopeId, String scopeType);
+    
+    List<HistoricIdentityLinkEntity> findHistoricIdentityLinksBySubScopeIdAndScopeType(String subScopeId, String scopeType);
 
     HistoricIdentityLinkEntity createHistoricIdentityLink();
     
@@ -40,4 +44,12 @@ public interface HistoricIdentityLinkService {
     void deleteHistoricIdentityLinksByProcessInstanceId(String processInstanceId);
     
     void deleteHistoricIdentityLinksByTaskId(String taskId);
+    
+    void deleteHistoricIdentityLinksByScopeIdAndScopeType(String scopeId, String scopeType);
+    
+    void deleteHistoricProcessIdentityLinksForNonExistingInstances();
+    
+    void deleteHistoricCaseIdentityLinksForNonExistingInstances();
+    
+    void deleteHistoricTaskIdentityLinksForNonExistingInstances();
 }

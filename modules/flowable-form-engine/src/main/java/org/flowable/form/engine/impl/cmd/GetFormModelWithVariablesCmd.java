@@ -13,7 +13,8 @@
 package org.flowable.form.engine.impl.cmd;
 
 import java.io.Serializable;
-import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -21,40 +22,48 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
+import org.flowable.common.engine.api.FlowableException;
+import org.flowable.common.engine.api.FlowableObjectNotFoundException;
+import org.flowable.common.engine.api.delegate.Expression;
+import org.flowable.common.engine.api.scope.ScopeTypes;
+import org.flowable.common.engine.impl.el.VariableContainerWrapper;
+import org.flowable.common.engine.impl.interceptor.Command;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
 import org.flowable.editor.form.converter.FormJsonConverter;
-import org.flowable.engine.common.api.FlowableException;
-import org.flowable.engine.common.api.FlowableObjectNotFoundException;
-import org.flowable.engine.common.api.delegate.Expression;
-import org.flowable.engine.common.impl.el.VariableContainerWrapper;
-import org.flowable.engine.common.impl.interceptor.Command;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
+import org.flowable.form.api.FormDeployment;
+import org.flowable.form.api.FormInfo;
 import org.flowable.form.api.FormInstance;
 import org.flowable.form.engine.FormEngineConfiguration;
+import org.flowable.form.engine.impl.FormDeploymentQueryImpl;
 import org.flowable.form.engine.impl.persistence.deploy.DeploymentManager;
 import org.flowable.form.engine.impl.persistence.deploy.FormDefinitionCacheEntry;
 import org.flowable.form.engine.impl.persistence.entity.FormDefinitionEntity;
+import org.flowable.form.engine.impl.persistence.entity.FormDefinitionEntityManager;
 import org.flowable.form.engine.impl.util.CommandContextUtil;
 import org.flowable.form.model.ExpressionFormField;
 import org.flowable.form.model.FormField;
 import org.flowable.form.model.FormFieldTypes;
-import org.flowable.form.model.FormModel;
+import org.flowable.form.model.Option;
+import org.flowable.form.model.OptionFormField;
+import org.flowable.form.model.SimpleFormModel;
 import org.joda.time.LocalDate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * @author Tijs Rademakers
  */
-public class GetFormModelWithVariablesCmd implements Command<FormModel>, Serializable {
+public class GetFormModelWithVariablesCmd implements Command<FormInfo>, Serializable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GetFormModelWithVariablesCmd.class);
 
     private static final long serialVersionUID = 1L;
     
-    protected static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-M-d");
+    protected static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-M-d");
 
     protected String formDefinitionKey;
     protected String parentDeploymentId;
@@ -62,32 +71,38 @@ public class GetFormModelWithVariablesCmd implements Command<FormModel>, Seriali
     protected String taskId;
     protected String tenantId;
     protected Map<String, Object> variables;
+    protected boolean fallbackToDefaultTenant;
 
     public GetFormModelWithVariablesCmd(String formDefinitionKey, String formDefinitionId, String taskId, Map<String, Object> variables) {
         initializeValues(formDefinitionKey, formDefinitionId, null, variables);
         this.taskId = taskId;
     }
 
-    public GetFormModelWithVariablesCmd(String formDefinitionKey, String parentDeploymentId, String formDefinitionId, String taskId, Map<String, Object> variables) {
+    public GetFormModelWithVariablesCmd(String formDefinitionKey, String parentDeploymentId, String formDefinitionId, 
+                    String taskId, Map<String, Object> variables) {
+        
         initializeValues(formDefinitionKey, formDefinitionId, null, variables);
         this.parentDeploymentId = parentDeploymentId;
         this.taskId = taskId;
     }
 
-    public GetFormModelWithVariablesCmd(String formDefinitionKey, String parentDeploymentId, String formDefinitionId, String taskId, String tenantId, Map<String, Object> variables) {
+    public GetFormModelWithVariablesCmd(String formDefinitionKey, String parentDeploymentId, String formDefinitionId, 
+                    String taskId, String tenantId, Map<String, Object> variables, boolean fallbackToDefaultTenant) {
+        
         initializeValues(formDefinitionKey, formDefinitionId, null, variables);
         this.parentDeploymentId = parentDeploymentId;
         this.taskId = taskId;
         this.tenantId = tenantId;
+        this.fallbackToDefaultTenant = fallbackToDefaultTenant;
     }
 
     @Override
-    public FormModel execute(CommandContext commandContext) {
+    public FormInfo execute(CommandContext commandContext) {
         FormDefinitionCacheEntry formCacheEntry = resolveFormDefinition(commandContext);
         FormInstance formInstance = resolveFormInstance(formCacheEntry, commandContext);
-        FormModel formModel = resolveFormModel(formCacheEntry, commandContext);
-        fillFormFieldValues(formInstance, formModel, commandContext);
-        return formModel;
+        FormInfo formInfo = resolveFormModel(formCacheEntry, commandContext);
+        fillFormFieldValues(formInstance, formInfo, commandContext);
+        return formInfo;
     }
 
     protected void initializeValues(String formDefinitionKey, String formDefinitionId, String tenantId, Map<String, Object> variables) {
@@ -101,10 +116,11 @@ public class GetFormModelWithVariablesCmd implements Command<FormModel>, Seriali
         }
     }
 
-    protected void fillFormFieldValues(FormInstance formInstance, FormModel formDefinition, CommandContext commandContext) {
+    protected void fillFormFieldValues(FormInstance formInstance, FormInfo formInfo, CommandContext commandContext) {
 
         FormEngineConfiguration formEngineConfiguration = CommandContextUtil.getFormEngineConfiguration();
-        List<FormField> allFields = formDefinition.listAllFields();
+        SimpleFormModel formModel = (SimpleFormModel) formInfo.getFormModel();
+        List<FormField> allFields = formModel.listAllFields();
         if (allFields != null) {
 
             Map<String, JsonNode> formInstanceFieldMap = new HashMap<>();
@@ -114,7 +130,53 @@ public class GetFormModelWithVariablesCmd implements Command<FormModel>, Seriali
             }
 
             for (FormField field : allFields) {
-                if (field instanceof ExpressionFormField) {
+                if (field instanceof OptionFormField) {
+                    // Drop down options to be populated from an expression
+                    OptionFormField optionFormField = (OptionFormField) field;
+                    if (optionFormField.getOptionsExpression() != null) {
+                        Expression optionsExpression = formEngineConfiguration.getExpressionManager().createExpression(optionFormField.getOptionsExpression());
+                        Object value = null;
+                        try {
+                            value = optionsExpression.getValue(new VariableContainerWrapper(variables));
+                        } catch (Exception e) {
+                            throw new FlowableException("Error getting value for optionsExpression: " + optionFormField.getOptionsExpression(), e);
+                        }
+                        if (value instanceof List) {
+                            @SuppressWarnings("unchecked")
+                            List<Option> options = (List<Option>) value;
+                            optionFormField.setOptions(options);
+                        } else if (value instanceof String) {
+                            String json = (String) value;
+                            try {
+                                List<Option> options = formEngineConfiguration.getObjectMapper().readValue(json, new TypeReference<List<Option>>(){});
+                                optionFormField.setOptions(options);
+                            } catch (Exception e) {
+                                throw new FlowableException("Error parsing optionsExpression json value: " + json, e);
+                            }
+                        } else {
+                            throw new FlowableException("Invalid type from evaluated expression for optionsExpression: " + optionFormField.getOptionsExpression() + ", resulting type:" + value.getClass().getName());
+                        }
+                    }
+                    Object variableValue = variables.get(field.getId());
+                    optionFormField.setValue(variableValue);
+                } else if (FormFieldTypes.HYPERLINK.equals(field.getType())) {
+                    Object variableValue = variables.get(field.getId());
+                    // process expression if there is no value, otherwise keep it
+                    if (variableValue != null) {
+                        field.setValue(variableValue);
+                    } else {
+                        // No value set, process as expression
+                        if (field.getParam("hyperlinkUrl") != null) {
+                            String hyperlinkUrl = field.getParam("hyperlinkUrl").toString();
+                            Expression formExpression = formEngineConfiguration.getExpressionManager().createExpression(hyperlinkUrl);
+                            try {
+                                field.setValue(formExpression.getValue(new VariableContainerWrapper(variables)));
+                            } catch (Exception e) {
+                                LOGGER.error("Error getting value for hyperlink expression {} {}", hyperlinkUrl, e.getMessage(), e);
+                            }
+                        }
+                    }
+                } else if (field instanceof ExpressionFormField) {
                     ExpressionFormField expressionField = (ExpressionFormField) field;
                     Expression formExpression = formEngineConfiguration.getExpressionManager().createExpression(expressionField.getExpression());
                     try {
@@ -132,7 +194,7 @@ public class GetFormModelWithVariablesCmd implements Command<FormModel>, Seriali
                             field.setValue(dateVariable.toString("yyyy-M-d"));
                             
                         } else if (variableValue instanceof Date) {
-                            Date dateVariable = (Date) variableValue;
+                            Instant dateVariable = ((Date) variableValue).toInstant();
                             field.setValue(DATE_FORMAT.format(dateVariable));
                             
                         } else {
@@ -145,7 +207,9 @@ public class GetFormModelWithVariablesCmd implements Command<FormModel>, Seriali
     }
 
     protected FormDefinitionCacheEntry resolveFormDefinition(CommandContext commandContext) {
-        DeploymentManager deploymentManager = CommandContextUtil.getFormEngineConfiguration().getDeploymentManager();
+        FormEngineConfiguration formEngineConfiguration = CommandContextUtil.getFormEngineConfiguration();
+        DeploymentManager deploymentManager = formEngineConfiguration.getDeploymentManager();
+        FormDefinitionEntityManager formDefinitionEntityManager = formEngineConfiguration.getFormDefinitionEntityManager();
 
         // Find the form definition
         FormDefinitionEntity formDefinitionEntity = null;
@@ -156,23 +220,45 @@ public class GetFormModelWithVariablesCmd implements Command<FormModel>, Seriali
                 throw new FlowableObjectNotFoundException("No form definition found for id = '" + formDefinitionId + "'", FormDefinitionEntity.class);
             }
 
-        } else if (formDefinitionKey != null && (tenantId == null || FormEngineConfiguration.NO_TENANT_ID.equals(tenantId)) && parentDeploymentId == null) {
+        } else if (formDefinitionKey != null && (tenantId == null || FormEngineConfiguration.NO_TENANT_ID.equals(tenantId)) && 
+                        (parentDeploymentId == null || formEngineConfiguration.isAlwaysLookupLatestDefinitionVersion())) {
 
             formDefinitionEntity = deploymentManager.findDeployedLatestFormDefinitionByKey(formDefinitionKey);
             if (formDefinitionEntity == null) {
                 throw new FlowableObjectNotFoundException("No form definition found for key '" + formDefinitionKey + "'", FormDefinitionEntity.class);
             }
 
-        } else if (formDefinitionKey != null && tenantId != null && !FormEngineConfiguration.NO_TENANT_ID.equals(tenantId) && parentDeploymentId == null) {
+        } else if (formDefinitionKey != null && tenantId != null && !FormEngineConfiguration.NO_TENANT_ID.equals(tenantId) && 
+                        (parentDeploymentId == null || formEngineConfiguration.isAlwaysLookupLatestDefinitionVersion())) {
 
-            formDefinitionEntity = deploymentManager.findDeployedLatestFormDefinitionByKeyAndTenantId(formDefinitionKey, tenantId);
+            formDefinitionEntity = formDefinitionEntityManager.findLatestFormDefinitionByKeyAndTenantId(formDefinitionKey, tenantId);
+            
+            if (formDefinitionEntity == null && (fallbackToDefaultTenant || formEngineConfiguration.isFallbackToDefaultTenant())) {
+                String defaultTenant = formEngineConfiguration.getDefaultTenantProvider().getDefaultTenant(tenantId, ScopeTypes.FORM, formDefinitionKey);
+                if (StringUtils.isNotEmpty(defaultTenant)) {
+                    formDefinitionEntity = formDefinitionEntityManager.findLatestFormDefinitionByKeyAndTenantId(formDefinitionKey, defaultTenant);
+                } else {
+                    formDefinitionEntity = formDefinitionEntityManager.findLatestFormDefinitionByKey(formDefinitionKey);
+                }
+            }
+            
             if (formDefinitionEntity == null) {
                 throw new FlowableObjectNotFoundException("No form definition found for key '" + formDefinitionKey + "' for tenant identifier " + tenantId, FormDefinitionEntity.class);
             }
 
         } else if (formDefinitionKey != null && (tenantId == null || FormEngineConfiguration.NO_TENANT_ID.equals(tenantId)) && parentDeploymentId != null) {
 
-            formDefinitionEntity = deploymentManager.findDeployedLatestFormDefinitionByKeyAndParentDeploymentId(formDefinitionKey, parentDeploymentId);
+            List<FormDeployment> formDeployments = deploymentManager.getDeploymentEntityManager().findDeploymentsByQueryCriteria(
+                            new FormDeploymentQueryImpl().parentDeploymentId(parentDeploymentId));
+            
+            if (formDeployments != null && formDeployments.size() > 0) {
+                formDefinitionEntity = formDefinitionEntityManager.findFormDefinitionByDeploymentAndKey(formDeployments.get(0).getId(), formDefinitionKey);
+            }
+            
+            if (formDefinitionEntity == null) {
+                formDefinitionEntity = formDefinitionEntityManager.findLatestFormDefinitionByKey(formDefinitionKey);
+            }
+            
             if (formDefinitionEntity == null) {
                 throw new FlowableObjectNotFoundException("No form definition found for key '" + formDefinitionKey +
                         "' for parent deployment id " + parentDeploymentId, FormDefinitionEntity.class);
@@ -180,7 +266,27 @@ public class GetFormModelWithVariablesCmd implements Command<FormModel>, Seriali
 
         } else if (formDefinitionKey != null && tenantId != null && !FormEngineConfiguration.NO_TENANT_ID.equals(tenantId) && parentDeploymentId != null) {
 
-            formDefinitionEntity = deploymentManager.findDeployedLatestFormDefinitionByKeyParentDeploymentIdAndTenantId(formDefinitionKey, parentDeploymentId, tenantId);
+            List<FormDeployment> formDeployments = deploymentManager.getDeploymentEntityManager().findDeploymentsByQueryCriteria(
+                            new FormDeploymentQueryImpl().parentDeploymentId(parentDeploymentId).deploymentTenantId(tenantId));
+            
+            if (formDeployments != null && formDeployments.size() > 0) {
+                formDefinitionEntity = formDefinitionEntityManager.findFormDefinitionByDeploymentAndKeyAndTenantId(
+                                formDeployments.get(0).getId(), formDefinitionKey, tenantId);
+            }
+            
+            if (formDefinitionEntity == null) {
+                formDefinitionEntity = formDefinitionEntityManager.findLatestFormDefinitionByKeyAndTenantId(formDefinitionKey, tenantId);
+            }
+            
+            if (formDefinitionEntity == null && (fallbackToDefaultTenant || formEngineConfiguration.isFallbackToDefaultTenant())) {
+                String defaultTenant = formEngineConfiguration.getDefaultTenantProvider().getDefaultTenant(tenantId, ScopeTypes.FORM, formDefinitionKey);
+                if (StringUtils.isNotEmpty(defaultTenant)) {
+                    formDefinitionEntity = formDefinitionEntityManager.findLatestFormDefinitionByKeyAndTenantId(formDefinitionKey, defaultTenant);
+                } else {
+                    formDefinitionEntity = formDefinitionEntityManager.findLatestFormDefinitionByKey(formDefinitionKey);
+                }
+            }
+            
             if (formDefinitionEntity == null) {
                 throw new FlowableObjectNotFoundException("No form definition found for key '" + formDefinitionKey +
                         "' for parent deployment id '" + parentDeploymentId + "' and for tenant identifier " + tenantId, FormDefinitionEntity.class);
@@ -245,6 +351,15 @@ public class GetFormModelWithVariablesCmd implements Command<FormModel>, Seriali
                 } catch (Exception e) {
                     LOGGER.error("Error parsing form date value for form instance {} with value {}", formInstanceId, fieldValue, e);
                 }
+                
+            } else if (fieldValueNode.isBoolean()) {
+                variables.put(field.getId(), fieldValueNode.asBoolean());
+                
+            } else if (fieldValueNode.isLong()) {
+                variables.put(field.getId(), fieldValueNode.asLong());
+                
+            } else if (fieldValueNode.isDouble()) {
+                variables.put(field.getId(), fieldValueNode.asDouble());
 
             } else {
                 variables.put(field.getId(), fieldValue);
@@ -271,14 +386,17 @@ public class GetFormModelWithVariablesCmd implements Command<FormModel>, Seriali
         return null;
     }
 
-    protected FormModel resolveFormModel(FormDefinitionCacheEntry formCacheEntry, CommandContext commandContext) {
+    protected FormInfo resolveFormModel(FormDefinitionCacheEntry formCacheEntry, CommandContext commandContext) {
         FormDefinitionEntity formEntity = formCacheEntry.getFormDefinitionEntity();
         FormJsonConverter formJsonConverter = CommandContextUtil.getFormEngineConfiguration().getFormJsonConverter();
-        FormModel formDefinition = formJsonConverter.convertToFormModel(formCacheEntry.getFormDefinitionJson(), formEntity.getId(), formEntity.getVersion());
-        formDefinition.setId(formEntity.getId());
-        formDefinition.setName(formEntity.getName());
-        formDefinition.setKey(formEntity.getKey());
+        SimpleFormModel formModel = formJsonConverter.convertToFormModel(formCacheEntry.getFormDefinitionJson());
+        FormInfo formInfo = new FormInfo();
+        formInfo.setId(formEntity.getId());
+        formInfo.setName(formEntity.getName());
+        formInfo.setKey(formEntity.getKey());
+        formInfo.setVersion(formEntity.getVersion());
+        formInfo.setFormModel(formModel);
 
-        return formDefinition;
+        return formInfo;
     }
 }

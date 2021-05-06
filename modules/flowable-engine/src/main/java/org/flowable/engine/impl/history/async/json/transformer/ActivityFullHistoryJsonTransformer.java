@@ -12,24 +12,34 @@
  */
 package org.flowable.engine.impl.history.async.json.transformer;
 
-import java.util.Date;
+import static org.flowable.job.service.impl.history.async.util.AsyncHistoryJsonUtil.getDateFromJson;
+import static org.flowable.job.service.impl.history.async.util.AsyncHistoryJsonUtil.getIntegerFromJson;
+import static org.flowable.job.service.impl.history.async.util.AsyncHistoryJsonUtil.getStringFromJson;
 
-import org.flowable.engine.common.api.delegate.event.FlowableEngineEventType;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
+import java.util.Collections;
+import java.util.Date;
+import java.util.List;
+
+import org.flowable.common.engine.api.delegate.event.FlowableEngineEventType;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
 import org.flowable.engine.delegate.event.impl.FlowableEventBuilder;
+import org.flowable.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.flowable.engine.impl.history.async.HistoryJsonConstants;
 import org.flowable.engine.impl.persistence.entity.HistoricActivityInstanceEntity;
 import org.flowable.engine.impl.persistence.entity.HistoricActivityInstanceEntityManager;
-import org.flowable.engine.impl.util.CommandContextUtil;
 import org.flowable.job.service.impl.persistence.entity.HistoryJobEntity;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class ActivityFullHistoryJsonTransformer extends AbstractHistoryJsonTransformer {
 
+    public ActivityFullHistoryJsonTransformer(ProcessEngineConfigurationImpl processEngineConfiguration) {
+        super(processEngineConfiguration);
+    }
+    
     @Override
-    public String getType() {
-        return HistoryJsonConstants.TYPE_ACTIVITY_FULL;
+    public List<String> getTypes() {
+        return Collections.singletonList(HistoryJsonConstants.TYPE_ACTIVITY_FULL);
     }
 
     @Override
@@ -39,10 +49,10 @@ public class ActivityFullHistoryJsonTransformer extends AbstractHistoryJsonTrans
 
     @Override
     public void transformJson(HistoryJobEntity job, ObjectNode historicalData, CommandContext commandContext) {
-        HistoricActivityInstanceEntityManager historicActivityInstanceEntityManager = CommandContextUtil.getProcessEngineConfiguration(commandContext).getHistoricActivityInstanceEntityManager();
+        HistoricActivityInstanceEntityManager historicActivityInstanceEntityManager = processEngineConfiguration.getHistoricActivityInstanceEntityManager();
         
-        HistoricActivityInstanceEntity historicActivityInstanceEntity = historicActivityInstanceEntityManager.create();
-        historicActivityInstanceEntity.setId(CommandContextUtil.getProcessEngineConfiguration(commandContext).getIdGenerator().getNextId());
+        HistoricActivityInstanceEntity historicActivityInstanceEntity = createHistoricActivityInstanceEntity(historicalData, commandContext, historicActivityInstanceEntityManager);
+
         historicActivityInstanceEntity.setProcessDefinitionId(getStringFromJson(historicalData, HistoryJsonConstants.PROCESS_DEFINITION_ID));
         historicActivityInstanceEntity.setProcessInstanceId(getStringFromJson(historicalData, HistoryJsonConstants.PROCESS_INSTANCE_ID));
         historicActivityInstanceEntity.setExecutionId(getStringFromJson(historicalData, HistoryJsonConstants.EXECUTION_ID));
@@ -51,6 +61,7 @@ public class ActivityFullHistoryJsonTransformer extends AbstractHistoryJsonTrans
         historicActivityInstanceEntity.setActivityType(getStringFromJson(historicalData, HistoryJsonConstants.ACTIVITY_TYPE));
         historicActivityInstanceEntity.setStartTime(getDateFromJson(historicalData, HistoryJsonConstants.START_TIME));
         historicActivityInstanceEntity.setTenantId(getStringFromJson(historicalData, HistoryJsonConstants.TENANT_ID));
+        historicActivityInstanceEntity.setTransactionOrder(getIntegerFromJson(historicalData, HistoryJsonConstants.TRANSACTION_ORDER));
         
         Date endTime = getDateFromJson(historicalData, HistoryJsonConstants.END_TIME);
         historicActivityInstanceEntity.setEndTime(endTime);

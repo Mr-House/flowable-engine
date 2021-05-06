@@ -13,12 +13,10 @@
 package org.flowable.variable.service.impl.persistence.entity;
 
 import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
-import org.flowable.engine.common.impl.persistence.entity.EntityManager;
+import org.flowable.common.engine.impl.persistence.entity.EntityManager;
 import org.flowable.variable.api.types.VariableType;
+import org.flowable.variable.service.InternalVariableInstanceQuery;
 
 /**
  * @author Joram Barrez
@@ -27,36 +25,27 @@ public interface VariableInstanceEntityManager extends EntityManager<VariableIns
 
     VariableInstanceEntity create(String name, VariableType type, Object value);
 
-    List<VariableInstanceEntity> findVariableInstancesByTaskId(String taskId);
+    /**
+     * Create a variable instance without setting the value on it.
+     * <b>IMPORTANT:</b> If you use this method you would have to call {@link VariableInstanceEntity#setValue(Object)}
+     * for setting the value
+     * @param name the name of the variable to create
+     * @param type the type of the created variable
+     *
+     * @return the {@link VariableInstanceEntity} to be used
+     */
+    VariableInstanceEntity create(String name, VariableType type);
 
-    List<VariableInstanceEntity> findVariableInstancesByTaskIds(Set<String> taskIds);
+    InternalVariableInstanceQuery createInternalVariableInstanceQuery();
 
-    List<VariableInstanceEntity> findVariableInstancesByExecutionId(String executionId);
+    void deleteVariablesByTaskId(String taskId);
 
-    List<VariableInstanceEntity> findVariableInstancesByExecutionIds(Set<String> executionIds);
-
-    VariableInstanceEntity findVariableInstanceByExecutionAndName(String executionId, String variableName);
-
-    List<VariableInstanceEntity> findVariableInstancesByExecutionAndNames(String executionId, Collection<String> names);
-
-    VariableInstanceEntity findVariableInstanceByTaskAndName(String taskId, String variableName);
-
-    List<VariableInstanceEntity> findVariableInstancesByTaskAndNames(String taskId, Collection<String> names);
-    
-    List<VariableInstanceEntity> findVariableInstanceByScopeIdAndScopeType(String scopeId, String scopeType);
-    
-    VariableInstanceEntity findVariableInstanceByScopeIdAndScopeTypeAndName(String scopeId, String scopeType, String variableName);
-    
-    List<VariableInstanceEntity> findVariableInstancesByScopeIdAndScopeTypeAndNames(String scopeId, String scopeType, Collection<String> variableNames);
-    
-    List<VariableInstanceEntity> findVariableInstanceBySubScopeIdAndScopeType(String subScopeId, String scopeType);
-    
-    VariableInstanceEntity findVariableInstanceBySubScopeIdAndScopeTypeAndName(String subScopeId, String scopeType, String variableName);
-    
-    List<VariableInstanceEntity> findVariableInstancesBySubScopeIdAndScopeTypeAndNames(String subScopeId, String scopeType, Collection<String> variableNames);
-
-    void deleteVariableInstanceMap(Map<String, VariableInstanceEntity> variableInstances);
+    void deleteVariablesByExecutionId(String executionId);
     
     void deleteByScopeIdAndScopeType(String scopeId, String scopeType);
+
+    void deleteByScopeIdAndScopeTypes(String scopeId, Collection<String> scopeTypes);
+
+    void deleteBySubScopeIdAndScopeTypes(String subScopeId, Collection<String> scopeTypes);
 
 }

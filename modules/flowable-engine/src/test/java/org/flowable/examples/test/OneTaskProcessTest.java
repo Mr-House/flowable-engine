@@ -12,8 +12,8 @@
  */
 package org.flowable.examples.test;
 
-import static org.hamcrest.core.Is.is;
-import static org.junit.Assert.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +30,9 @@ import org.flowable.engine.impl.test.PluggableFlowableTestCase;
 import org.flowable.engine.repository.ProcessDefinition;
 import org.flowable.engine.runtime.ProcessInstance;
 import org.flowable.engine.test.Deployment;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * This class provides examples how to test one task process
@@ -38,16 +41,15 @@ public class OneTaskProcessTest extends PluggableFlowableTestCase {
 
     protected EventLogger databaseEventLogger;
 
-    @Override
+    @BeforeEach
     protected void setUp() throws Exception {
-        super.setUp();
 
         // Database event logger setup
         databaseEventLogger = new EventLogger(processEngineConfiguration.getClock(), processEngineConfiguration.getObjectMapper());
         runtimeService.addEventListener(databaseEventLogger);
     }
 
-    @Override
+    @AfterEach
     protected void tearDown() throws Exception {
         // Cleanup
         for (EventLogEntry eventLogEntry : managementService.getEventLogEntries(null, null)) {
@@ -57,9 +59,9 @@ public class OneTaskProcessTest extends PluggableFlowableTestCase {
         // Database event logger teardown
         runtimeService.removeEventListener(databaseEventLogger);
 
-        super.tearDown();
     }
 
+    @Test
     @Deployment(resources = {"org/flowable/engine/test/api/runtime/oneTaskProcess.bpmn20.xml"})
     public void testStandardJUnitOneTaskProcess() {
         // Arrange -> start process
@@ -69,9 +71,10 @@ public class OneTaskProcessTest extends PluggableFlowableTestCase {
         this.taskService.complete(this.taskService.createTaskQuery().processInstanceId(oneTaskProcess.getProcessInstanceId()).singleResult().getId());
 
         // Assert -> process instance is finished
-        assertThat(this.runtimeService.createProcessInstanceQuery().processInstanceId(oneTaskProcess.getId()).count(), is(0L));
+        assertThat(this.runtimeService.createProcessInstanceQuery().processInstanceId(oneTaskProcess.getId()).count()).isZero();
     }
 
+    @Test
     @Deployment(resources = {"org/flowable/engine/test/api/runtime/oneTaskProcess.bpmn20.xml"})
     public void testProcessModelByAnotherProcess() {
         testProcessModelByAnotherProcess(
@@ -86,20 +89,19 @@ public class OneTaskProcessTest extends PluggableFlowableTestCase {
         ProcessInstance pUnitTestProcessInstance = this.runtimeService.startProcessInstanceByKey(model.getMainProcess().getId());
 
         waitForJobExecutorToProcessAllJobs(15000, 200);
-        assertThat(this.runtimeService.createProcessInstanceQuery().processInstanceId(pUnitTestProcessInstance.getId()).count(), is(0L));
+        assertThat(this.runtimeService.createProcessInstanceQuery().processInstanceId(pUnitTestProcessInstance.getId()).count()).isZero();
     }
 
+    @Test
     @Deployment(resources = {"org/flowable/engine/test/api/twoTasksProcess.bpmn20.xml"})
     public void testProcessModelFailure() {
         // deploy different process - test should fail
-        try {
-            testProcessModelByAnotherProcess(createTestProcessBpmnModel("twoTasksProcess"));
-            fail("Expected exception was not thrown.");
-        } catch (AssertionError e) {
-            assertThat(e.getMessage(), is("\nExpected: is <0L>\n     but: was <1L>"));
-        }
+        assertThatThrownBy(() -> testProcessModelByAnotherProcess(createTestProcessBpmnModel("twoTasksProcess")))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContainingAll("expected: 0L", "but was : 1L");
     }
 
+    @Test
     @Deployment(resources = {"org/flowable/engine/test/api/oneTaskProcess.bpmn20.xml"})
     public void testGenerateProcessTestSemiAutomatically() {
         // Generate "user" events

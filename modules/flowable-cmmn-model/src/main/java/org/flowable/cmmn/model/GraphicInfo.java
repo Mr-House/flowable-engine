@@ -74,18 +74,22 @@ public class GraphicInfo extends BaseElement {
         this.element = element;
     }
 
+    @Override
     public int getXmlRowNumber() {
         return xmlRowNumber;
     }
 
+    @Override
     public void setXmlRowNumber(int xmlRowNumber) {
         this.xmlRowNumber = xmlRowNumber;
     }
 
+    @Override
     public int getXmlColumnNumber() {
         return xmlColumnNumber;
     }
 
+    @Override
     public void setXmlColumnNumber(int xmlColumnNumber) {
         this.xmlColumnNumber = xmlColumnNumber;
     }
@@ -114,7 +118,7 @@ public class GraphicInfo extends BaseElement {
     	}
 
     	// only check for elements that support this value
-    	if (null != this.getExpanded() && null != ginfo.getExpanded() && this.getExpanded() != ginfo.getExpanded()) {
+    	if (null != this.getExpanded() && null != ginfo.getExpanded() && !this.getExpanded().equals(ginfo.getExpanded())) {
     		return false;
     	}
     	return true;

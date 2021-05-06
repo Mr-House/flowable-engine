@@ -13,16 +13,19 @@
 
 package org.flowable.rest.service.api.repository;
 
+import static org.flowable.common.rest.api.PaginateListUtil.paginateList;
+
 import java.util.HashMap;
 import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
 
+import org.flowable.common.engine.api.query.QueryProperty;
+import org.flowable.common.rest.api.DataResponse;
 import org.flowable.engine.RepositoryService;
-import org.flowable.engine.common.api.query.QueryProperty;
 import org.flowable.engine.impl.ProcessDefinitionQueryProperty;
 import org.flowable.engine.repository.ProcessDefinitionQuery;
-import org.flowable.rest.api.DataResponse;
+import org.flowable.rest.service.api.BpmnRestApiInterceptor;
 import org.flowable.rest.service.api.RestResponseFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -62,6 +65,9 @@ public class ProcessDefinitionCollectionResource {
 
     @Autowired
     protected RepositoryService repositoryService;
+    
+    @Autowired(required=false)
+    protected BpmnRestApiInterceptor restApiInterceptor;
 
     @ApiOperation(value = "List of process definitions", tags = { "Process Definitions" }, nickname = "listProcessDefinitions")
     @ApiImplicitParams({
@@ -74,7 +80,7 @@ public class ProcessDefinitionCollectionResource {
             @ApiImplicitParam(name = "resourceNameLike", dataType = "string", value = "Only return process definitions with a name like the given resource name.", paramType = "query"),
             @ApiImplicitParam(name = "category", dataType = "string", value = "Only return process definitions with the given category.", paramType = "query"),
             @ApiImplicitParam(name = "categoryLike", dataType = "string", value = "Only return process definitions with a category like the given name.", paramType = "query"),
-            @ApiImplicitParam(name = "categoryNotEquals", dataType = "string", value = "Only return process definitions which don’t have the given category.", paramType = "query"),
+            @ApiImplicitParam(name = "categoryNotEquals", dataType = "string", value = "Only return process definitions which do not have the given category.", paramType = "query"),
             @ApiImplicitParam(name = "deploymentId", dataType = "string", value = "Only return process definitions with the given category.", paramType = "query"),
             @ApiImplicitParam(name = "startableByUser", dataType = "string", value = "Only return process definitions which are part of a deployment with the given id.", paramType = "query"),
             @ApiImplicitParam(name = "latest", dataType = "boolean", value = "Only return the latest process definition versions. Can only be used together with key and keyLike parameters, using any other parameter will result in a 400-response.", paramType = "query"),
@@ -148,7 +154,11 @@ public class ProcessDefinitionCollectionResource {
         if (allRequestParams.containsKey("tenantIdLike")) {
             processDefinitionQuery.processDefinitionTenantIdLike(allRequestParams.get("tenantIdLike"));
         }
+        
+        if (restApiInterceptor != null) {
+            restApiInterceptor.accessProcessDefinitionsWithQuery(processDefinitionQuery);
+        }
 
-        return new ProcessDefinitionsPaginateList(restResponseFactory).paginateList(allRequestParams, processDefinitionQuery, "name", properties);
+        return paginateList(allRequestParams, processDefinitionQuery, "name", properties, restResponseFactory::createProcessDefinitionResponseList);
     }
 }

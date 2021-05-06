@@ -13,6 +13,8 @@
 package org.flowable.cmmn.engine.impl.deployer;
 
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -20,6 +22,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
+import org.flowable.cmmn.converter.CmmnXmlConstants;
 import org.flowable.cmmn.engine.CmmnEngineConfiguration;
 import org.flowable.cmmn.engine.impl.parser.CmmnParseResult;
 import org.flowable.cmmn.engine.impl.parser.CmmnParser;
@@ -31,12 +34,18 @@ import org.flowable.cmmn.engine.impl.persistence.entity.deploy.CaseDefinitionCac
 import org.flowable.cmmn.engine.impl.util.CommandContextUtil;
 import org.flowable.cmmn.model.Case;
 import org.flowable.cmmn.model.CmmnModel;
-import org.flowable.engine.common.EngineDeployer;
-import org.flowable.engine.common.api.FlowableException;
-import org.flowable.engine.common.api.repository.EngineDeployment;
-import org.flowable.engine.common.api.repository.EngineResource;
-import org.flowable.engine.common.impl.cfg.IdGenerator;
-import org.flowable.engine.common.impl.persistence.deploy.DeploymentCache;
+import org.flowable.cmmn.model.ExtensionElement;
+import org.flowable.common.engine.api.FlowableException;
+import org.flowable.common.engine.api.repository.EngineDeployment;
+import org.flowable.common.engine.api.repository.EngineResource;
+import org.flowable.common.engine.api.scope.ScopeTypes;
+import org.flowable.common.engine.impl.EngineDeployer;
+import org.flowable.common.engine.impl.cfg.IdGenerator;
+import org.flowable.common.engine.impl.persistence.deploy.DeploymentCache;
+import org.flowable.eventsubscription.service.EventSubscriptionService;
+import org.flowable.identitylink.api.IdentityLinkType;
+import org.flowable.identitylink.service.IdentityLinkService;
+import org.flowable.identitylink.service.impl.persistence.entity.IdentityLinkEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,9 +60,16 @@ public class CmmnDeployer implements EngineDeployer {
 
     public static final String[] CMMN_RESOURCE_SUFFIXES = new String[]{".cmmn", ".cmmn11", ".cmmn.xml", ".cmmn11.xml"};
 
+    protected CmmnEngineConfiguration cmmnEngineConfiguration;
+    
     protected IdGenerator idGenerator;
     protected CmmnParser cmmnParser;
     protected CaseDefinitionDiagramHelper caseDefinitionDiagramHelper;
+    protected boolean usePrefixId;
+    
+    public CmmnDeployer(CmmnEngineConfiguration cmmnEngineConfiguration) {
+        this.cmmnEngineConfiguration = cmmnEngineConfiguration;
+    }
 
     @Override
     public void deploy(EngineDeployment deployment, Map<String, Object> deploymentSettings) {
@@ -78,8 +94,11 @@ public class CmmnDeployer implements EngineDeployer {
             Map<CaseDefinitionEntity, CaseDefinitionEntity> mapOfNewCaseDefinitionToPreviousVersion = getPreviousVersionsOfCaseDefinitions(parseResult);
             setCaseDefinitionVersionsAndIds(parseResult, mapOfNewCaseDefinitionToPreviousVersion);
             persistCaseDefinitions(parseResult);
+            updateEventSubscriptions(parseResult, mapOfNewCaseDefinitionToPreviousVersion);
+
         } else {
             makeCaseDefinitionsConsistentWithPersistedVersions(parseResult);
+
         }
 
         updateCachingAndArtifacts(parseResult);
@@ -144,7 +163,11 @@ public class CmmnDeployer implements EngineDeployer {
                 version = latest.getVersion() + 1;
             }
             caseDefinition.setVersion(version);
-            caseDefinition.setId(idGenerator.getNextId());
+            if (usePrefixId) {
+                caseDefinition.setId(caseDefinition.getIdPrefix() + idGenerator.getNextId());
+            } else {
+                caseDefinition.setId(idGenerator.getNextId());
+            }
 
             Case caseObject = parseResult.getCmmnCaseForCaseDefinition(caseDefinition);
             if (caseObject.getPlanModel().getFormKey() != null) {
@@ -154,10 +177,54 @@ public class CmmnDeployer implements EngineDeployer {
     }
 
     protected void persistCaseDefinitions(CmmnParseResult parseResult) {
-        CaseDefinitionEntityManager caseDefinitionManager = CommandContextUtil.getCaseDefinitionEntityManager();
+        CaseDefinitionEntityManager caseDefinitionManager = cmmnEngineConfiguration.getCaseDefinitionEntityManager();
         for (CaseDefinitionEntity caseDefinition : parseResult.getAllCaseDefinitions()) {
             caseDefinitionManager.insert(caseDefinition, false);
+            addAuthorizationsForNewCaseDefinition(parseResult.getCmmnCaseForCaseDefinition(caseDefinition), caseDefinition);
         }
+    }
+
+    protected void updateEventSubscriptions(CmmnParseResult parseResult, Map<CaseDefinitionEntity, CaseDefinitionEntity> mapOfNewCaseDefinitionToPreviousVersion) {
+        EventSubscriptionService eventSubscriptionService = cmmnEngineConfiguration.getEventSubscriptionServiceConfiguration().getEventSubscriptionService();
+        for (CaseDefinitionEntity caseDefinition : parseResult.getAllCaseDefinitions()) {
+
+            CaseDefinitionEntity previousCaseDefinition = mapOfNewCaseDefinitionToPreviousVersion.get(caseDefinition);
+            if (previousCaseDefinition != null) {
+                eventSubscriptionService.deleteEventSubscriptionsForScopeDefinitionIdAndTypeAndNullScopeId(previousCaseDefinition.getId(), ScopeTypes.CMMN);
+            }
+
+            Case caseModel = parseResult.getCmmnCaseForCaseDefinition(caseDefinition);
+            String startEventType = caseModel.getStartEventType();
+            if (startEventType != null) {
+                eventSubscriptionService.createEventSubscriptionBuilder()
+                    .eventType(startEventType)
+                    .configuration(getEventCorrelationKey(caseModel))
+                    .scopeDefinitionId(caseDefinition.getId())
+                    .scopeType(ScopeTypes.CMMN)
+                    .tenantId(caseDefinition.getTenantId())
+                    .create();
+            }
+
+        }
+    }
+
+    protected String getEventCorrelationKey(Case caseModel) {
+        String correlationKey = null;
+        List<ExtensionElement> eventCorrelationParamExtensions = caseModel.getExtensionElements()
+            .getOrDefault(CmmnXmlConstants.ELEMENT_EVENT_CORRELATION_PARAMETER, Collections.emptyList());
+        if (!eventCorrelationParamExtensions.isEmpty()) {
+
+            // Cannot evaluate expressions for start events, hence why values are taken as-is
+            Map<String, Object> correlationParameters = new HashMap<>();
+            for (ExtensionElement eventCorrelation : eventCorrelationParamExtensions) {
+                String name = eventCorrelation.getAttributeValue(null, "name");
+                String value = eventCorrelation.getAttributeValue(null, "value");
+                correlationParameters.put(name, value);
+            }
+
+            correlationKey = CommandContextUtil.getEventRegistry().generateKey(correlationParameters);
+        }
+        return correlationKey;
     }
 
     protected void makeCaseDefinitionsConsistentWithPersistedVersions(CmmnParseResult parseResult) {
@@ -221,7 +288,7 @@ public class CmmnDeployer implements EngineDeployer {
             throw new IllegalStateException("Provided case definition must have a deployment id.");
         }
 
-        CaseDefinitionEntityManager caseDefinitionEntityManager = CommandContextUtil.getCaseDefinitionEntityManager();
+        CaseDefinitionEntityManager caseDefinitionEntityManager = cmmnEngineConfiguration.getCaseDefinitionEntityManager();
         CaseDefinitionEntity persistedCaseDefinitionEntity = null;
         if (caseDefinitionEntity.getTenantId() == null || CmmnEngineConfiguration.NO_TENANT_ID.equals(caseDefinitionEntity.getTenantId())) {
             persistedCaseDefinitionEntity = caseDefinitionEntityManager.findCaseDefinitionByDeploymentAndKey(deploymentId, caseDefinitionEntity.getKey());
@@ -232,7 +299,6 @@ public class CmmnDeployer implements EngineDeployer {
     }
 
     protected void updateCachingAndArtifacts(CmmnParseResult parseResult) {
-        CmmnEngineConfiguration cmmnEngineConfiguration = CommandContextUtil.getCmmnEngineConfiguration();
         DeploymentCache<CaseDefinitionCacheEntry> caseDefinitionCache = cmmnEngineConfiguration.getCaseDefinitionCache();
         CmmnDeploymentEntity deployment = (CmmnDeploymentEntity) parseResult.getDeployment();
 
@@ -244,6 +310,32 @@ public class CmmnDeployer implements EngineDeployer {
 
             deployment.addDeployedArtifact(caseDefinitionEntity);
         }
+    }
+    
+    public void addAuthorizationsForNewCaseDefinition(Case caze, CaseDefinitionEntity caseDefinition) {
+        addAuthorizationsFromIterator(caze.getCandidateStarterUsers(), caseDefinition, "user");
+        addAuthorizationsFromIterator(caze.getCandidateStarterGroups(), caseDefinition, "group");
+    }
+
+    protected void addAuthorizationsFromIterator(List<String> expressions,
+                    CaseDefinitionEntity caseDefinition, String expressionType) {
+
+        if (expressions != null) {
+            IdentityLinkService identityLinkService = cmmnEngineConfiguration.getIdentityLinkServiceConfiguration().getIdentityLinkService();
+            for (String expression : expressions) {
+                IdentityLinkEntity identityLink = identityLinkService.createIdentityLink();
+                identityLink.setScopeDefinitionId(caseDefinition.getId());
+                identityLink.setScopeType(ScopeTypes.CMMN);
+                if ("user".equals(expressionType)) {
+                    identityLink.setUserId(expression);
+                } else if ("group".equals(expressionType)) {
+                    identityLink.setGroupId(expression);
+                }
+                identityLink.setType(IdentityLinkType.CANDIDATE);
+                identityLinkService.insertIdentityLink(identityLink);
+            }
+        }
+
     }
 
     public IdGenerator getIdGenerator() {
@@ -268,5 +360,13 @@ public class CmmnDeployer implements EngineDeployer {
 
     public void setCaseDefinitionDiagramHelper(CaseDefinitionDiagramHelper caseDefinitionDiagramHelper) {
         this.caseDefinitionDiagramHelper = caseDefinitionDiagramHelper;
+    }
+
+    public boolean isUsePrefixId() {
+        return usePrefixId;
+    }
+
+    public void setUsePrefixId(boolean usePrefixId) {
+        this.usePrefixId = usePrefixId;
     }
 }

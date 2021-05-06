@@ -179,26 +179,11 @@ import org.activiti.engine.impl.scripting.ScriptingEngines;
 import org.activiti.engine.impl.scripting.VariableScopeResolverFactory;
 import org.activiti.engine.impl.util.IoUtil;
 import org.activiti.engine.impl.util.ReflectUtil;
-import org.activiti.engine.impl.variable.BooleanType;
-import org.activiti.engine.impl.variable.ByteArrayType;
-import org.activiti.engine.impl.variable.CustomObjectType;
-import org.activiti.engine.impl.variable.DateType;
-import org.activiti.engine.impl.variable.DefaultVariableTypes;
-import org.activiti.engine.impl.variable.DoubleType;
 import org.activiti.engine.impl.variable.EntityManagerSession;
 import org.activiti.engine.impl.variable.EntityManagerSessionFactory;
-import org.activiti.engine.impl.variable.IntegerType;
 import org.activiti.engine.impl.variable.JPAEntityListVariableType;
 import org.activiti.engine.impl.variable.JPAEntityVariableType;
-import org.activiti.engine.impl.variable.JsonType;
-import org.activiti.engine.impl.variable.LongJsonType;
-import org.activiti.engine.impl.variable.LongStringType;
-import org.activiti.engine.impl.variable.LongType;
-import org.activiti.engine.impl.variable.NullType;
 import org.activiti.engine.impl.variable.SerializableType;
-import org.activiti.engine.impl.variable.ShortType;
-import org.activiti.engine.impl.variable.StringType;
-import org.activiti.engine.impl.variable.UUIDType;
 import org.activiti.engine.parse.BpmnParseHandler;
 import org.apache.ibatis.builder.xml.XMLConfigBuilder;
 import org.apache.ibatis.builder.xml.XMLMapperBuilder;
@@ -212,20 +197,20 @@ import org.apache.ibatis.transaction.jdbc.JdbcTransactionFactory;
 import org.apache.ibatis.transaction.managed.ManagedTransactionFactory;
 import org.apache.ibatis.type.JdbcType;
 import org.flowable.bpmn.model.BpmnModel;
-import org.flowable.engine.common.api.delegate.event.FlowableEventDispatcher;
-import org.flowable.engine.common.impl.calendar.BusinessCalendarManager;
-import org.flowable.engine.common.impl.calendar.CycleBusinessCalendar;
-import org.flowable.engine.common.impl.calendar.DueDateBusinessCalendar;
-import org.flowable.engine.common.impl.calendar.DurationBusinessCalendar;
-import org.flowable.engine.common.impl.calendar.MapBusinessCalendarManager;
-import org.flowable.engine.common.impl.history.HistoryLevel;
-import org.flowable.engine.common.impl.persistence.deploy.DefaultDeploymentCache;
-import org.flowable.engine.common.impl.persistence.deploy.DeploymentCache;
-import org.flowable.engine.common.impl.util.DefaultClockImpl;
+import org.flowable.common.engine.api.delegate.event.FlowableEventDispatcher;
+import org.flowable.common.engine.impl.calendar.BusinessCalendarManager;
+import org.flowable.common.engine.impl.calendar.CycleBusinessCalendar;
+import org.flowable.common.engine.impl.calendar.DueDateBusinessCalendar;
+import org.flowable.common.engine.impl.calendar.DurationBusinessCalendar;
+import org.flowable.common.engine.impl.calendar.MapBusinessCalendarManager;
+import org.flowable.common.engine.impl.history.HistoryLevel;
+import org.flowable.common.engine.impl.persistence.deploy.DefaultDeploymentCache;
+import org.flowable.common.engine.impl.persistence.deploy.DeploymentCache;
+import org.flowable.common.engine.impl.util.DefaultClockImpl;
 import org.flowable.engine.compatibility.Flowable5CompatibilityHandler;
 import org.flowable.engine.form.AbstractFormType;
-import org.flowable.engine.impl.bpmn.data.ItemInstance;
-import org.flowable.engine.impl.bpmn.webservice.MessageInstance;
+import org.flowable.engine.impl.bpmn.parser.factory.DefaultXMLImporterFactory;
+import org.flowable.engine.impl.bpmn.parser.factory.XMLImporterFactory;
 import org.flowable.engine.impl.cfg.DelegateExpressionFieldInjectionMode;
 import org.flowable.engine.impl.persistence.deploy.ProcessDefinitionCacheEntry;
 import org.flowable.image.impl.DefaultProcessDiagramGenerator;
@@ -234,6 +219,19 @@ import org.flowable.validation.ProcessValidator;
 import org.flowable.validation.ProcessValidatorFactory;
 import org.flowable.variable.api.types.VariableType;
 import org.flowable.variable.api.types.VariableTypes;
+import org.flowable.variable.service.impl.types.BooleanType;
+import org.flowable.variable.service.impl.types.ByteArrayType;
+import org.flowable.variable.service.impl.types.DateType;
+import org.flowable.variable.service.impl.types.DefaultVariableTypes;
+import org.flowable.variable.service.impl.types.DoubleType;
+import org.flowable.variable.service.impl.types.IntegerType;
+import org.flowable.variable.service.impl.types.JsonType;
+import org.flowable.variable.service.impl.types.LongStringType;
+import org.flowable.variable.service.impl.types.LongType;
+import org.flowable.variable.service.impl.types.NullType;
+import org.flowable.variable.service.impl.types.ShortType;
+import org.flowable.variable.service.impl.types.StringType;
+import org.flowable.variable.service.impl.types.UUIDType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -486,6 +484,7 @@ public abstract class ProcessEngineConfigurationImpl extends ProcessEngineConfig
     protected int historicProcessInstancesQueryLimit = 20000;
 
     protected String wsSyncFactoryClassName = DEFAULT_WS_SYNC_FACTORY;
+    protected XMLImporterFactory wsWsdlImporterFactory;
     protected ConcurrentMap<QName, URL> wsOverridenEndpointAddresses = new ConcurrentHashMap<>();
 
     protected CommandContextFactory commandContextFactory;
@@ -571,6 +570,7 @@ public abstract class ProcessEngineConfigurationImpl extends ProcessEngineConfig
     protected void init() {
         initConfigurators();
         configuratorsBeforeInit();
+        initClock();
         initProcessDiagramGenerator();
         initHistoryLevel();
         initExpressionManager();
@@ -579,13 +579,13 @@ public abstract class ProcessEngineConfigurationImpl extends ProcessEngineConfig
         initFormEngines();
         initFormTypes();
         initScriptingEngines();
-        initClock();
         initBusinessCalendarManager();
         initCommandContextFactory();
         initTransactionContextFactory();
         initCommandExecutors();
         initServices();
         initIdGenerator();
+        initWsdlImporterFactory();
         initDeployers();
         initJobHandlers();
         initDataSource();
@@ -1181,6 +1181,13 @@ public abstract class ProcessEngineConfigurationImpl extends ProcessEngineConfig
         defaultDeployers.add(bpmnDeployer);
         return defaultDeployers;
     }
+    
+    public void initWsdlImporterFactory() {
+        if (wsWsdlImporterFactory == null) {
+            DefaultXMLImporterFactory defaultListenerFactory = new DefaultXMLImporterFactory();
+            wsWsdlImporterFactory = defaultListenerFactory;
+        }
+    }
 
     protected List<BpmnParseHandler> getDefaultBpmnParseHandlers() {
 
@@ -1360,12 +1367,11 @@ public abstract class ProcessEngineConfigurationImpl extends ProcessEngineConfig
             variableTypes.addType(new DateType());
             variableTypes.addType(new DoubleType());
             variableTypes.addType(new UUIDType());
-            variableTypes.addType(new JsonType(maxLengthStringVariableType, objectMapper));
-            variableTypes.addType(new LongJsonType(maxLengthStringVariableType + 1, objectMapper));
+            variableTypes.addType(new JsonType(maxLengthStringVariableType, objectMapper, false));
+            // longJsonType only needed for reading purposes
+            variableTypes.addType(JsonType.longJsonType(maxLengthStringVariableType, objectMapper, false));
             variableTypes.addType(new ByteArrayType());
             variableTypes.addType(new SerializableType());
-            variableTypes.addType(new CustomObjectType("item", ItemInstance.class));
-            variableTypes.addType(new CustomObjectType("message", MessageInstance.class));
             if (customPostVariableTypes != null) {
                 for (VariableType customVariableType : customPostVariableTypes) {
                     variableTypes.addType(customVariableType);
@@ -2194,6 +2200,15 @@ public abstract class ProcessEngineConfigurationImpl extends ProcessEngineConfig
 
     public void setProcessValidator(ProcessValidator processValidator) {
         this.processValidator = processValidator;
+    }
+    
+    public XMLImporterFactory getWsdlImporterFactory() {
+        return wsWsdlImporterFactory;
+    }
+
+    public ProcessEngineConfigurationImpl setWsdlImporterFactory(XMLImporterFactory wsWsdlImporterFactory) {
+        this.wsWsdlImporterFactory = wsWsdlImporterFactory;
+        return this;
     }
 
     public boolean isEnableEventDispatcher() {

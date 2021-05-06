@@ -20,11 +20,11 @@ import java.util.Map;
 import javax.annotation.PostConstruct;
 
 import org.apache.commons.io.IOUtils;
+import org.flowable.common.engine.api.FlowableException;
+import org.flowable.common.engine.api.FlowableIllegalArgumentException;
+import org.flowable.common.engine.api.FlowableObjectNotFoundException;
+import org.flowable.common.rest.exception.FlowableContentNotSupportedException;
 import org.flowable.engine.RuntimeService;
-import org.flowable.engine.common.api.FlowableException;
-import org.flowable.engine.common.api.FlowableIllegalArgumentException;
-import org.flowable.engine.common.api.FlowableObjectNotFoundException;
-import org.flowable.rest.exception.FlowableContentNotSupportedException;
 import org.flowable.rest.service.api.RestResponseFactory;
 import org.flowable.rest.service.api.engine.variable.RestVariable;
 import org.flowable.rest.service.api.engine.variable.RestVariable.RestVariableScope;
@@ -66,8 +66,7 @@ public class TaskVariableBaseResource extends TaskBaseResource {
                 variableScope = RestVariableScope.LOCAL;
                 variableFound = true;
             } else {
-                // Revert to execution-variable when not present local on the
-                // task
+                // Revert to execution-variable when not present local on the task
                 Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
                 if (task.getExecutionId() != null && runtimeService.hasVariable(task.getExecutionId(), variableName)) {
                     value = runtimeService.getVariable(task.getExecutionId(), variableName);
@@ -91,7 +90,7 @@ public class TaskVariableBaseResource extends TaskBaseResource {
         }
 
         if (!variableFound) {
-            throw new FlowableObjectNotFoundException("Task '" + taskId + "' doesn't have a variable with name: '" + variableName + "'.", VariableInstanceEntity.class);
+            throw new FlowableObjectNotFoundException("Task '" + taskId + "' does not have a variable with name: '" + variableName + "'.", VariableInstanceEntity.class);
         } else {
             return restResponseFactory.createRestVariable(variableName, value, variableScope, taskId, RestResponseFactory.VARIABLE_TASK, includeBinary);
         }
@@ -136,13 +135,13 @@ public class TaskVariableBaseResource extends TaskBaseResource {
 
             if (paramMap.get(parameterName).length > 0) {
 
-                if (parameterName.equalsIgnoreCase("scope")) {
+                if ("scope".equalsIgnoreCase(parameterName)) {
                     variableScope = paramMap.get(parameterName)[0];
 
-                } else if (parameterName.equalsIgnoreCase("name")) {
+                } else if ("name".equalsIgnoreCase(parameterName)) {
                     variableName = paramMap.get(parameterName)[0];
 
-                } else if (parameterName.equalsIgnoreCase("type")) {
+                } else if ("type".equalsIgnoreCase(parameterName)) {
                     variableType = paramMap.get(parameterName)[0];
                 }
             }
@@ -188,7 +187,7 @@ public class TaskVariableBaseResource extends TaskBaseResource {
         } catch (IOException ioe) {
             throw new FlowableIllegalArgumentException("Error getting binary variable", ioe);
         } catch (ClassNotFoundException ioe) {
-            throw new FlowableContentNotSupportedException("The provided body contains a serialized object for which the class is nog found: " + ioe.getMessage());
+            throw new FlowableContentNotSupportedException("The provided body contains a serialized object for which the class was not found: " + ioe.getMessage());
         }
 
     }
@@ -219,7 +218,7 @@ public class TaskVariableBaseResource extends TaskBaseResource {
         }
 
         if (!isNew && !hasVariable) {
-            throw new FlowableObjectNotFoundException("Task '" + task.getId() + "' doesn't have a variable with name: '" + name + "'.", null);
+            throw new FlowableObjectNotFoundException("Task '" + task.getId() + "' does not have a variable with name: '" + name + "'.", null);
         }
 
         if (scope == RestVariableScope.LOCAL) {

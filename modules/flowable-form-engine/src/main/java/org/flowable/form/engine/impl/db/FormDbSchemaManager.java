@@ -12,87 +12,59 @@
  */
 package org.flowable.form.engine.impl.db;
 
-import java.sql.Connection;
-
-import org.apache.commons.lang3.StringUtils;
-import org.flowable.engine.common.api.FlowableException;
-import org.flowable.engine.common.impl.db.DbSchemaManager;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
+import org.flowable.common.engine.impl.db.EngineDatabaseConfiguration;
+import org.flowable.common.engine.impl.db.LiquibaseBasedSchemaManager;
+import org.flowable.common.engine.impl.db.LiquibaseDatabaseConfiguration;
+import org.flowable.common.engine.impl.db.SchemaManager;
 import org.flowable.form.engine.FormEngineConfiguration;
 import org.flowable.form.engine.impl.util.CommandContextUtil;
 
-import liquibase.Liquibase;
-import liquibase.database.Database;
-import liquibase.database.DatabaseConnection;
-import liquibase.database.DatabaseFactory;
-import liquibase.database.jvm.JdbcConnection;
-import liquibase.resource.ClassLoaderResourceAccessor;
+public class FormDbSchemaManager extends LiquibaseBasedSchemaManager {
+    
+    public static final String LIQUIBASE_CHANGELOG = "org/flowable/form/db/liquibase/flowable-form-db-changelog.xml";
 
-public class FormDbSchemaManager implements DbSchemaManager {
-    
-    public static String LIQUIBASE_CHANGELOG = "org/flowable/form/db/liquibase/flowable-form-db-changelog.xml";
-    
+    public FormDbSchemaManager() {
+        super("form", LIQUIBASE_CHANGELOG, FormEngineConfiguration.LIQUIBASE_CHANGELOG_PREFIX);
+    }
+
     @Override
-    public void dbSchemaCreate() {
-        Liquibase liquibase = createLiquibaseInstance();
+    protected LiquibaseDatabaseConfiguration getDatabaseConfiguration() {
+        return new EngineDatabaseConfiguration(CommandContextUtil.getFormEngineConfiguration());
+    }
+
+    public void initSchema(FormEngineConfiguration formEngineConfiguration) {
+        initSchema(formEngineConfiguration.getDatabaseSchemaUpdate());
+    }
+
+    @Override
+    public void schemaCreate() {
+        getCommonSchemaManager().schemaCreate();
+        super.schemaCreate();
+    }
+
+    @Override
+    public void schemaDrop() {
         try {
-            liquibase.update("form");
+            super.schemaDrop();
         } catch (Exception e) {
-            throw new FlowableException("Error creating form engine tables", e);
+            logger.info("Error dropping form engine tables", e);
+        }
+
+        try {
+            getCommonSchemaManager().schemaDrop();
+        } catch (Exception e) {
+            logger.info("Error dropping common tables", e);
         }
     }
 
     @Override
-    public void dbSchemaDrop() {
-        Liquibase liquibase = createLiquibaseInstance();
-        try {
-            liquibase.dropAll();
-        } catch (Exception e) {
-            throw new FlowableException("Error dropping form engine tables", e);
-        }
-    }
-    
-    @Override
-    public String dbSchemaUpdate() {
-        dbSchemaCreate();
-        return null;
+    public String schemaUpdate() {
+        getCommonSchemaManager().schemaUpdate();
+        return super.schemaUpdate();
     }
 
-    protected static Liquibase createLiquibaseInstance() {
-        try {
-            Connection jdbcConnection = null;
-            CommandContext commandContext = CommandContextUtil.getCommandContext();
-            FormEngineConfiguration formEngineConfiguration = CommandContextUtil.getFormEngineConfiguration(commandContext);
-            if (commandContext == null) {
-                jdbcConnection = CommandContextUtil.getFormEngineConfiguration(commandContext).getDataSource().getConnection();
-            } else {
-                jdbcConnection = CommandContextUtil.getDbSqlSession(commandContext).getSqlSession().getConnection();
-            }
-            if (!jdbcConnection.getAutoCommit()) {
-                jdbcConnection.commit();
-            }
-            
-            DatabaseConnection connection = new JdbcConnection(jdbcConnection);
-            Database database = DatabaseFactory.getInstance().findCorrectDatabaseImplementation(connection);
-            database.setDatabaseChangeLogTableName(FormEngineConfiguration.LIQUIBASE_CHANGELOG_PREFIX + database.getDatabaseChangeLogTableName());
-            database.setDatabaseChangeLogLockTableName(FormEngineConfiguration.LIQUIBASE_CHANGELOG_PREFIX + database.getDatabaseChangeLogLockTableName());
-
-            if (StringUtils.isNotEmpty(formEngineConfiguration.getDatabaseSchema())) {
-                database.setDefaultSchemaName(formEngineConfiguration.getDatabaseSchema());
-                database.setLiquibaseSchemaName(formEngineConfiguration.getDatabaseSchema());
-            }
-
-            if (StringUtils.isNotEmpty(formEngineConfiguration.getDatabaseCatalog())) {
-                database.setDefaultCatalogName(formEngineConfiguration.getDatabaseCatalog());
-                database.setLiquibaseCatalogName(formEngineConfiguration.getDatabaseCatalog());
-            }
-
-            Liquibase liquibase = new Liquibase(LIQUIBASE_CHANGELOG, new ClassLoaderResourceAccessor(), database);
-            return liquibase;
-
-        } catch (Exception e) {
-            throw new FlowableException("Error creating liquibase instance", e);
-        }
+    protected SchemaManager getCommonSchemaManager() {
+        return CommandContextUtil.getFormEngineConfiguration().getCommonSchemaManager();
     }
 
 }

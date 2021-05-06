@@ -13,23 +13,27 @@
 
 package org.flowable.engine.test.api.runtime;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
+
 import java.util.List;
 
-import org.flowable.engine.common.impl.history.HistoryLevel;
+import org.flowable.common.engine.impl.history.HistoryLevel;
 import org.flowable.engine.impl.test.HistoryTestHelper;
 import org.flowable.engine.impl.test.PluggableFlowableTestCase;
 import org.flowable.engine.task.Event;
 import org.flowable.engine.test.Deployment;
 import org.flowable.identitylink.api.IdentityLink;
-import org.flowable.identitylink.service.IdentityLinkType;
-
-import junit.framework.AssertionFailedError;
+import org.flowable.identitylink.api.IdentityLinkInfo;
+import org.flowable.identitylink.api.IdentityLinkType;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author Wendel Kerr
  */
 public class ProcessInstanceIdentityLinksTest extends PluggableFlowableTestCase {
 
+    @Test
     @Deployment(resources = "org/flowable/engine/test/api/runtime/IdentityLinksProcess.bpmn20.xml")
     public void testParticipantUserLink() {
         runtimeService.startProcessInstanceByKey("IdentityLinksProcess");
@@ -41,18 +45,19 @@ public class ProcessInstanceIdentityLinksTest extends PluggableFlowableTestCase 
         List<IdentityLink> identityLinks = runtimeService.getIdentityLinksForProcessInstance(processInstanceId);
         IdentityLink identityLink = identityLinks.get(0);
 
-        assertNull(identityLink.getGroupId());
-        assertEquals("kermit", identityLink.getUserId());
-        assertEquals(IdentityLinkType.PARTICIPANT, identityLink.getType());
-        assertEquals(processInstanceId, identityLink.getProcessInstanceId());
+        assertThat(identityLink.getGroupId()).isNull();
+        assertThat(identityLink.getUserId()).isEqualTo("kermit");
+        assertThat(identityLink.getType()).isEqualTo(IdentityLinkType.PARTICIPANT);
+        assertThat(identityLink.getProcessInstanceId()).isEqualTo(processInstanceId);
 
-        assertEquals(1, identityLinks.size());
+        assertThat(identityLinks).hasSize(1);
 
         runtimeService.deleteParticipantUser(processInstanceId, "kermit");
 
-        assertEquals(0, runtimeService.getIdentityLinksForProcessInstance(processInstanceId).size());
+        assertThat(runtimeService.getIdentityLinksForProcessInstance(processInstanceId)).isEmpty();
     }
 
+    @Test
     @Deployment(resources = "org/flowable/engine/test/api/runtime/IdentityLinksProcess.bpmn20.xml")
     public void testCandidateGroupLink() {
         runtimeService.startProcessInstanceByKey("IdentityLinksProcess");
@@ -62,51 +67,36 @@ public class ProcessInstanceIdentityLinksTest extends PluggableFlowableTestCase 
         runtimeService.addParticipantGroup(processInstanceId, "muppets");
 
         List<IdentityLink> identityLinks = runtimeService.getIdentityLinksForProcessInstance(processInstanceId);
-        IdentityLink identityLink = identityLinks.get(0);
-
-        assertEquals("muppets", identityLink.getGroupId());
-        assertNull("kermit", identityLink.getUserId());
-        assertEquals(IdentityLinkType.PARTICIPANT, identityLink.getType());
-        assertEquals(processInstanceId, identityLink.getProcessInstanceId());
-
-        assertEquals(1, identityLinks.size());
+        assertThat(identityLinks)
+                .extracting(IdentityLink::getGroupId, IdentityLink::getUserId, IdentityLink::getType, IdentityLink::getProcessInstanceId)
+                .containsExactly(tuple("muppets", null, IdentityLinkType.PARTICIPANT, processInstanceId));
 
         if (HistoryTestHelper.isHistoryLevelAtLeast(HistoryLevel.AUDIT, processEngineConfiguration)) {
             List<Event> processInstanceEvents = runtimeService.getProcessInstanceEvents(processInstanceId);
-            assertEquals(1, processInstanceEvents.size());
-            Event processInstanceEvent = processInstanceEvents.get(0);
-            assertEquals(Event.ACTION_ADD_GROUP_LINK, processInstanceEvent.getAction());
-            List<String> processInstanceEventMessageParts = processInstanceEvent.getMessageParts();
-            assertEquals("muppets", processInstanceEventMessageParts.get(0));
-            assertEquals(IdentityLinkType.PARTICIPANT, processInstanceEventMessageParts.get(1));
-            assertEquals(2, processInstanceEventMessageParts.size());
+            assertThat(processInstanceEvents)
+                    .extracting(Event::getAction)
+                    .containsExactly(Event.ACTION_ADD_GROUP_LINK);
+            List<String> processInstanceEventMessageParts = processInstanceEvents.get(0).getMessageParts();
+            assertThat(processInstanceEventMessageParts)
+                    .containsOnly("muppets", IdentityLinkType.PARTICIPANT);
         }
 
         runtimeService.deleteParticipantGroup(processInstanceId, "muppets");
 
         if (HistoryTestHelper.isHistoryLevelAtLeast(HistoryLevel.AUDIT, processEngineConfiguration)) {
             List<Event> processInstanceEvents = runtimeService.getProcessInstanceEvents(processInstanceId);
-            Event processIsntanceEvent = findProcessInstanceEvent(processInstanceEvents, Event.ACTION_DELETE_GROUP_LINK);
-            assertEquals(Event.ACTION_DELETE_GROUP_LINK, processIsntanceEvent.getAction());
-            List<String> processInstanceEventMessageParts = processIsntanceEvent.getMessageParts();
-            assertEquals("muppets", processInstanceEventMessageParts.get(0));
-            assertEquals(IdentityLinkType.PARTICIPANT, processInstanceEventMessageParts.get(1));
-            assertEquals(2, processInstanceEventMessageParts.size());
-            assertEquals(2, processInstanceEvents.size());
+            assertThat(processInstanceEvents)
+                    .extracting(Event::getAction)
+                    .containsExactlyInAnyOrder(Event.ACTION_DELETE_GROUP_LINK, Event.ACTION_ADD_GROUP_LINK);
+            List<String> processInstanceEventMessageParts = processInstanceEvents.get(0).getMessageParts();
+            assertThat(processInstanceEventMessageParts)
+                    .containsOnly("muppets", IdentityLinkType.PARTICIPANT);
         }
 
-        assertEquals(0, runtimeService.getIdentityLinksForProcessInstance(processInstanceId).size());
+        assertThat(runtimeService.getIdentityLinksForProcessInstance(processInstanceId)).isEmpty();
     }
 
-    private Event findProcessInstanceEvent(List<Event> processInstanceEvents, String action) {
-        for (Event event : processInstanceEvents) {
-            if (action.equals(event.getAction())) {
-                return event;
-            }
-        }
-        throw new AssertionFailedError("no process instance event found with action " + action);
-    }
-
+    @Test
     @Deployment(resources = "org/flowable/engine/test/api/runtime/IdentityLinksProcess.bpmn20.xml")
     public void testCustomTypeUserLink() {
         runtimeService.startProcessInstanceByKey("IdentityLinksProcess");
@@ -116,20 +106,39 @@ public class ProcessInstanceIdentityLinksTest extends PluggableFlowableTestCase 
         runtimeService.addUserIdentityLink(processInstanceId, "kermit", "interestee");
 
         List<IdentityLink> identityLinks = runtimeService.getIdentityLinksForProcessInstance(processInstanceId);
-        IdentityLink identityLink = identityLinks.get(0);
-
-        assertNull(identityLink.getGroupId());
-        assertEquals("kermit", identityLink.getUserId());
-        assertEquals("interestee", identityLink.getType());
-        assertEquals(processInstanceId, identityLink.getProcessInstanceId());
-
-        assertEquals(1, identityLinks.size());
+        assertThat(identityLinks)
+                .extracting(IdentityLink::getGroupId, IdentityLink::getUserId, IdentityLink::getType, IdentityLink::getProcessInstanceId)
+                .containsExactly(tuple(null, "kermit", "interestee", processInstanceId));
 
         runtimeService.deleteUserIdentityLink(processInstanceId, "kermit", "interestee");
 
-        assertEquals(0, runtimeService.getIdentityLinksForProcessInstance(processInstanceId).size());
+        assertThat(runtimeService.getIdentityLinksForProcessInstance(processInstanceId)).isEmpty();
     }
 
+    @Test
+    @Deployment(resources = "org/flowable/engine/test/api/runtime/IdentityLinksProcess.bpmn20.xml")
+    public void testCreateAndRemoveUserIdentityLinksInSameCommand() {
+        runtimeService.startProcessInstanceByKey("IdentityLinksProcess");
+
+        String processInstanceId = runtimeService.createProcessInstanceQuery().singleResult().getId();
+
+        managementService.executeCommand(commandContext -> {
+            runtimeService.addUserIdentityLink(processInstanceId, "kermit", "interested");
+            runtimeService.addUserIdentityLink(processInstanceId, "kermit", "custom");
+            runtimeService.deleteUserIdentityLink(processInstanceId, "kermit", "interested");
+            return null;
+        });
+
+        List<IdentityLink> identityLinks = runtimeService.getIdentityLinksForProcessInstance(processInstanceId);
+
+        assertThat(identityLinks)
+            .extracting(IdentityLinkInfo::getUserId, IdentityLinkInfo::getType, IdentityLinkInfo::getProcessInstanceId)
+            .containsExactly(
+                tuple("kermit", "custom", processInstanceId)
+            );
+    }
+
+    @Test
     @Deployment(resources = "org/flowable/engine/test/api/runtime/IdentityLinksProcess.bpmn20.xml")
     public void testCustomLinkGroupLink() {
         runtimeService.startProcessInstanceByKey("IdentityLinksProcess");
@@ -139,18 +148,35 @@ public class ProcessInstanceIdentityLinksTest extends PluggableFlowableTestCase 
         runtimeService.addGroupIdentityLink(processInstanceId, "muppets", "playing");
 
         List<IdentityLink> identityLinks = runtimeService.getIdentityLinksForProcessInstance(processInstanceId);
-        IdentityLink identityLink = identityLinks.get(0);
-
-        assertEquals("muppets", identityLink.getGroupId());
-        assertNull("kermit", identityLink.getUserId());
-        assertEquals("playing", identityLink.getType());
-        assertEquals(processInstanceId, identityLink.getProcessInstanceId());
-
-        assertEquals(1, identityLinks.size());
+        assertThat(identityLinks)
+                .extracting(IdentityLink::getGroupId, IdentityLink::getUserId, IdentityLink::getType, IdentityLink::getProcessInstanceId)
+                .containsExactly(tuple("muppets", null, "playing", processInstanceId));
 
         runtimeService.deleteGroupIdentityLink(processInstanceId, "muppets", "playing");
 
-        assertEquals(0, runtimeService.getIdentityLinksForProcessInstance(processInstanceId).size());
+        assertThat(runtimeService.getIdentityLinksForProcessInstance(processInstanceId)).isEmpty();
+    }
+
+    @Test
+    @Deployment(resources = "org/flowable/engine/test/api/runtime/IdentityLinksProcess.bpmn20.xml")
+    public void testCreateAndRemoveGroupIdentityLinksInSameCommand() {
+        runtimeService.startProcessInstanceByKey("IdentityLinksProcess");
+
+        String processInstanceId = runtimeService.createProcessInstanceQuery().singleResult().getId();
+
+        managementService.executeCommand(commandContext -> {
+            runtimeService.addGroupIdentityLink(processInstanceId, "muppets", "playing");
+            runtimeService.addGroupIdentityLink(processInstanceId, "muppets", "custom");
+            runtimeService.deleteGroupIdentityLink(processInstanceId, "muppets", "playing");
+            return null;
+        });
+
+        List<IdentityLink> identityLinks = runtimeService.getIdentityLinksForProcessInstance(processInstanceId);
+        assertThat(identityLinks)
+            .extracting(IdentityLinkInfo::getGroupId, IdentityLinkInfo::getType, IdentityLinkInfo::getProcessInstanceId)
+            .containsExactly(
+                tuple("muppets", "custom", processInstanceId)
+            );
     }
 
 }

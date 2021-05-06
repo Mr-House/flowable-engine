@@ -15,11 +15,10 @@ package org.flowable.osgi;
 import javax.script.Bindings;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
 
-import org.flowable.engine.common.api.FlowableException;
-import org.flowable.engine.impl.scripting.ScriptBindingsFactory;
-import org.flowable.engine.impl.scripting.ScriptingEngines;
+import org.flowable.common.engine.api.FlowableException;
+import org.flowable.common.engine.impl.scripting.ScriptBindingsFactory;
+import org.flowable.common.engine.impl.scripting.ScriptingEngines;
 import org.flowable.variable.api.delegate.VariableScope;
 import org.osgi.framework.InvalidSyntaxException;
 
@@ -60,10 +59,6 @@ public class OsgiScriptingEngines extends ScriptingEngines {
             return super.evaluate(script, language, bindings);
         }
 
-        try {
-            return scriptEngine.eval(script, bindings);
-        } catch (ScriptException e) {
-            throw new FlowableException("problem evaluating script: " + e.getMessage(), e);
-        }
+        return evaluate(scriptEngine, script, bindings);
     }
 }

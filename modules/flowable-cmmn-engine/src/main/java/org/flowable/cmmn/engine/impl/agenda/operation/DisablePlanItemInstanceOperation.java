@@ -14,8 +14,9 @@ package org.flowable.cmmn.engine.impl.agenda.operation;
 
 import org.flowable.cmmn.api.runtime.PlanItemInstanceState;
 import org.flowable.cmmn.engine.impl.persistence.entity.PlanItemInstanceEntity;
+import org.flowable.cmmn.engine.impl.util.CommandContextUtil;
 import org.flowable.cmmn.model.PlanItemTransition;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
 
 /**
  * @author Joram Barrez
@@ -27,18 +28,24 @@ public class DisablePlanItemInstanceOperation extends AbstractChangePlanItemInst
     }
     
     @Override
-    protected String getLifeCycleTransition() {
+    public String getLifeCycleTransition() {
         return PlanItemTransition.DISABLE;
     }
     
     @Override
-    protected String getNewState() {
+    public String getNewState() {
         return PlanItemInstanceState.DISABLED;
     }
     
     @Override
     protected void internalExecute() {
-        // Nothing extra to do
+        planItemInstanceEntity.setLastDisabledTime(getCurrentTime(commandContext));
+        CommandContextUtil.getCmmnHistoryManager(commandContext).recordPlanItemInstanceDisabled(planItemInstanceEntity);
     }
-    
+
+    @Override
+    public String getOperationName() {
+        return "[Disable plan item]";
+    }
+
 }

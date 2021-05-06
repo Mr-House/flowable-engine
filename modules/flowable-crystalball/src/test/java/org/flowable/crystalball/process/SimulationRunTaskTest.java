@@ -12,9 +12,11 @@
  */
 package org.flowable.crystalball.process;
 
-import org.flowable.engine.ProcessEngines;
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.flowable.engine.impl.test.ResourceFlowableTestCase;
 import org.flowable.engine.test.Deployment;
+import org.junit.jupiter.api.Test;
 
 /**
  * This class provides the first insight into simulation run driven by process definition
@@ -27,16 +29,12 @@ public class SimulationRunTaskTest extends ResourceFlowableTestCase {
         super("org/flowable/crystalball/process/SimulationRunTaskTest.cfg.xml");
     }
 
+    @Test
     @Deployment
     public void testBasicSimulationRun() {
         runtimeService.startProcessInstanceByKey("basicSimulationRun");
         // all executions are finished
-        assertEquals(0, runtimeService.createExecutionQuery().count());
+        assertThat(runtimeService.createExecutionQuery().count()).isZero();
     }
 
-    @Override
-    protected void closeDownProcessEngine() {
-        super.closeDownProcessEngine();
-        ProcessEngines.destroy();
-    }
 }

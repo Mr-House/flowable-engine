@@ -46,17 +46,21 @@ public class ScriptTaskJsonConverter extends BaseBpmnJsonConverter {
     }
 
     @Override
-    protected void convertElementToJson(ObjectNode propertiesNode, BaseElement baseElement) {
+    protected void convertElementToJson(ObjectNode propertiesNode, BaseElement baseElement,
+        BpmnJsonConverterContext converterContext) {
         ScriptTask scriptTask = (ScriptTask) baseElement;
         propertiesNode.put(PROPERTY_SCRIPT_FORMAT, scriptTask.getScriptFormat());
         propertiesNode.put(PROPERTY_SCRIPT_TEXT, scriptTask.getScript());
+        propertiesNode.put(PROPERTY_SCRIPT_AUTO_STORE_VARIABLES, scriptTask.isAutoStoreVariables());
     }
 
     @Override
-    protected FlowElement convertJsonToElement(JsonNode elementNode, JsonNode modelNode, Map<String, JsonNode> shapeMap) {
+    protected FlowElement convertJsonToElement(JsonNode elementNode, JsonNode modelNode, Map<String, JsonNode> shapeMap,
+        BpmnJsonConverterContext converterContext) {
         ScriptTask task = new ScriptTask();
         task.setScriptFormat(getPropertyValueAsString(PROPERTY_SCRIPT_FORMAT, elementNode));
         task.setScript(getPropertyValueAsString(PROPERTY_SCRIPT_TEXT, elementNode));
+        task.setAutoStoreVariables(getPropertyValueAsBoolean(PROPERTY_SCRIPT_AUTO_STORE_VARIABLES, elementNode));
         return task;
     }
 }

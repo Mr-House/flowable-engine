@@ -15,16 +15,19 @@ package org.flowable.form.engine.impl;
 import java.io.InputStream;
 import java.util.List;
 
-import org.flowable.engine.common.impl.interceptor.Command;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
+import org.flowable.common.engine.impl.interceptor.Command;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
+import org.flowable.common.engine.impl.service.CommonEngineServiceImpl;
 import org.flowable.form.api.FormDefinition;
 import org.flowable.form.api.FormDefinitionQuery;
 import org.flowable.form.api.FormDeployment;
 import org.flowable.form.api.FormDeploymentBuilder;
 import org.flowable.form.api.FormDeploymentQuery;
+import org.flowable.form.api.FormInfo;
 import org.flowable.form.api.FormRepositoryService;
 import org.flowable.form.api.NativeFormDefinitionQuery;
 import org.flowable.form.api.NativeFormDeploymentQuery;
+import org.flowable.form.engine.FormEngineConfiguration;
 import org.flowable.form.engine.impl.cmd.DeleteDeploymentCmd;
 import org.flowable.form.engine.impl.cmd.DeployCmd;
 import org.flowable.form.engine.impl.cmd.GetDeploymentResourceCmd;
@@ -33,15 +36,19 @@ import org.flowable.form.engine.impl.cmd.GetFormDefinitionCmd;
 import org.flowable.form.engine.impl.cmd.GetFormDefinitionResourceCmd;
 import org.flowable.form.engine.impl.cmd.GetFormModelCmd;
 import org.flowable.form.engine.impl.cmd.SetDeploymentCategoryCmd;
+import org.flowable.form.engine.impl.cmd.SetDeploymentParentDeploymentIdCmd;
 import org.flowable.form.engine.impl.cmd.SetDeploymentTenantIdCmd;
 import org.flowable.form.engine.impl.cmd.SetFormDefinitionCategoryCmd;
 import org.flowable.form.engine.impl.repository.FormDeploymentBuilderImpl;
-import org.flowable.form.model.FormModel;
 
 /**
  * @author Tijs Rademakers
  */
-public class FormRepositoryServiceImpl extends ServiceImpl implements FormRepositoryService {
+public class FormRepositoryServiceImpl extends CommonEngineServiceImpl<FormEngineConfiguration> implements FormRepositoryService {
+
+    public FormRepositoryServiceImpl(FormEngineConfiguration engineConfiguration) {
+        super(engineConfiguration);
+    }
 
     @Override
     public FormDeploymentBuilder createDeployment() {
@@ -59,7 +66,12 @@ public class FormRepositoryServiceImpl extends ServiceImpl implements FormReposi
 
     @Override
     public void deleteDeployment(String deploymentId) {
-        commandExecutor.execute(new DeleteDeploymentCmd(deploymentId));
+        commandExecutor.execute(new DeleteDeploymentCmd(deploymentId, false));
+    }
+
+    @Override
+    public void deleteDeployment(String deploymentId, boolean cascade) {
+        commandExecutor.execute(new DeleteDeploymentCmd(deploymentId, cascade));
     }
 
     @Override
@@ -91,6 +103,11 @@ public class FormRepositoryServiceImpl extends ServiceImpl implements FormReposi
     public void setDeploymentTenantId(String deploymentId, String newTenantId) {
         commandExecutor.execute(new SetDeploymentTenantIdCmd(deploymentId, newTenantId));
     }
+    
+    @Override
+    public void changeDeploymentParentDeploymentId(String deploymentId, String newParentDeploymentId) {
+        commandExecutor.execute(new SetDeploymentParentDeploymentIdCmd(deploymentId, newParentDeploymentId));
+    }
 
     @Override
     public FormDeploymentQuery createDeploymentQuery() {
@@ -108,28 +125,28 @@ public class FormRepositoryServiceImpl extends ServiceImpl implements FormReposi
     }
 
     @Override
-    public FormModel getFormModelById(String formId) {
+    public FormInfo getFormModelById(String formId) {
         return commandExecutor.execute(new GetFormModelCmd(null, formId));
     }
 
     @Override
-    public FormModel getFormModelByKey(String formDefinitionKey) {
+    public FormInfo getFormModelByKey(String formDefinitionKey) {
         return commandExecutor.execute(new GetFormModelCmd(formDefinitionKey, null));
     }
 
     @Override
-    public FormModel getFormModelByKey(String formDefinitionKey, String tenantId) {
-        return commandExecutor.execute(new GetFormModelCmd(formDefinitionKey, null, tenantId));
+    public FormInfo getFormModelByKey(String formDefinitionKey, String tenantId, boolean fallbackToDefaultTenant) {
+        return commandExecutor.execute(new GetFormModelCmd(formDefinitionKey, null, tenantId, fallbackToDefaultTenant));
     }
 
     @Override
-    public FormModel getFormModelByKeyAndParentDeploymentId(String formDefinitionKey, String parentDeploymentId) {
-        return commandExecutor.execute(new GetFormModelCmd(formDefinitionKey, null, null, parentDeploymentId));
+    public FormInfo getFormModelByKeyAndParentDeploymentId(String formDefinitionKey, String parentDeploymentId) {
+        return commandExecutor.execute(new GetFormModelCmd(formDefinitionKey, null, null, parentDeploymentId, false));
     }
 
     @Override
-    public FormModel getFormModelByKeyAndParentDeploymentId(String formDefinitionKey, String parentDeploymentId, String tenantId) {
-        return commandExecutor.execute(new GetFormModelCmd(formDefinitionKey, null, tenantId, parentDeploymentId));
+    public FormInfo getFormModelByKeyAndParentDeploymentId(String formDefinitionKey, String parentDeploymentId, String tenantId, boolean fallbackToDefaultTenant) {
+        return commandExecutor.execute(new GetFormModelCmd(formDefinitionKey, null, tenantId, parentDeploymentId, fallbackToDefaultTenant));
     }
 
     @Override

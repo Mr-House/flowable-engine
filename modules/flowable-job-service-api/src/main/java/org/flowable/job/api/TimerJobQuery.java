@@ -15,7 +15,7 @@ package org.flowable.job.api;
 
 import java.util.Date;
 
-import org.flowable.engine.common.api.query.Query;
+import org.flowable.common.engine.api.query.Query;
 
 /**
  * Allows programmatic querying of {@link Job}s.
@@ -37,6 +37,18 @@ public interface TimerJobQuery extends Query<TimerJobQuery, Job> {
     /** Only select jobs which exist for the given process definition id */
     TimerJobQuery processDefinitionId(String processDefinitionid);
     
+    /** Only select jobs which exist for the given category */
+    TimerJobQuery category(String category);
+    
+    /** Only select jobs like for the given category value */
+    TimerJobQuery categoryLike(String categoryLike);
+    
+    /** Only select jobs which exist for the given element id */
+    TimerJobQuery elementId(String elementId);
+    
+    /** Only select jobs which exist for the given element name */
+    TimerJobQuery elementName(String elementName);
+    
     /** Only select jobs for the given scope identifier. */
     TimerJobQuery scopeId(String scopeId);
 
@@ -45,6 +57,11 @@ public interface TimerJobQuery extends Query<TimerJobQuery, Job> {
     
     /** Only select jobs for the given scope type. */
     TimerJobQuery scopeType(String scopeType);
+
+    /**
+     * Only return jobs that do not have a scope type.
+     */
+    TimerJobQuery withoutScopeType();
     
     /** Only select tasks for the given scope definition identifier. */
     TimerJobQuery scopeDefinitionId(String scopeDefinitionId);
@@ -57,6 +74,9 @@ public interface TimerJobQuery extends Query<TimerJobQuery, Job> {
     
     /** Only select jobs for the given plan item instance.  */
     TimerJobQuery planItemInstanceId(String planItemInstanceId);
+
+    /** Only select jobs with the given correlationId.  */
+    TimerJobQuery correlationId(String correlationId);
 
     /**
      * Only select jobs which are executable, ie. duedate is null or duedate is in the past
@@ -114,6 +134,11 @@ public interface TimerJobQuery extends Query<TimerJobQuery, Job> {
      * Order by duedate (needs to be followed by {@link #asc()} or {@link #desc()}).
      */
     TimerJobQuery orderByJobDuedate();
+
+    /**
+     * Order by create time (needs to be followed by {@link #asc()} or {@link #desc()}).
+     */
+    TimerJobQuery orderByJobCreateTime();
 
     /**
      * Order by retries (needs to be followed by {@link #asc()} or {@link #desc()}).

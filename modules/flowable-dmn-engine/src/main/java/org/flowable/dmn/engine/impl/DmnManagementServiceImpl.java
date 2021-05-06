@@ -14,23 +14,30 @@ package org.flowable.dmn.engine.impl;
 
 import java.util.Map;
 
+import org.flowable.common.engine.api.management.TableMetaData;
+import org.flowable.common.engine.api.management.TablePageQuery;
+import org.flowable.common.engine.impl.cmd.CustomSqlExecution;
+import org.flowable.common.engine.impl.cmd.GetTableCountCmd;
+import org.flowable.common.engine.impl.cmd.GetTableMetaDataCmd;
+import org.flowable.common.engine.impl.persistence.entity.TablePageQueryImpl;
+import org.flowable.common.engine.impl.service.CommonEngineServiceImpl;
 import org.flowable.dmn.api.DmnManagementService;
+import org.flowable.dmn.engine.DmnEngineConfiguration;
 import org.flowable.dmn.engine.impl.cmd.ExecuteCustomSqlCmd;
-import org.flowable.dmn.engine.impl.cmd.GetTableCountCmd;
-import org.flowable.dmn.engine.impl.cmd.GetTableMetaDataCmd;
 import org.flowable.dmn.engine.impl.cmd.GetTableNameCmd;
-import org.flowable.engine.common.api.management.TableMetaData;
-import org.flowable.engine.common.api.management.TablePageQuery;
-import org.flowable.engine.common.impl.cmd.CustomSqlExecution;
 
 /**
  * @author Tijs Rademakers
  */
-public class DmnManagementServiceImpl extends ServiceImpl implements DmnManagementService {
+public class DmnManagementServiceImpl extends CommonEngineServiceImpl<DmnEngineConfiguration> implements DmnManagementService {
+
+    public DmnManagementServiceImpl(DmnEngineConfiguration dmnEngineConfiguration) {
+        super(dmnEngineConfiguration);
+    }
 
     @Override
     public Map<String, Long> getTableCount() {
-        return commandExecutor.execute(new GetTableCountCmd());
+        return commandExecutor.execute(new GetTableCountCmd(configuration.getEngineCfgKey()));
     }
 
     @Override
@@ -40,12 +47,12 @@ public class DmnManagementServiceImpl extends ServiceImpl implements DmnManageme
 
     @Override
     public TableMetaData getTableMetaData(String tableName) {
-        return commandExecutor.execute(new GetTableMetaDataCmd(tableName));
+        return commandExecutor.execute(new GetTableMetaDataCmd(tableName, configuration.getEngineCfgKey()));
     }
 
     @Override
     public TablePageQuery createTablePageQuery() {
-        return new TablePageQueryImpl(commandExecutor);
+        return new TablePageQueryImpl(commandExecutor, configuration);
     }
 
     public <MapperType, ResultType> ResultType executeCustomSql(CustomSqlExecution<MapperType, ResultType> customSqlExecution) {

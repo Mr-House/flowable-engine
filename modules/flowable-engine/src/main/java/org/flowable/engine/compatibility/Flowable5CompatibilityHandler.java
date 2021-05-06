@@ -20,20 +20,21 @@ import java.util.Map;
 
 import org.flowable.bpmn.model.BpmnModel;
 import org.flowable.bpmn.model.MapExceptionEntry;
+import org.flowable.common.engine.api.delegate.event.FlowableEvent;
+import org.flowable.common.engine.impl.runtime.Clock;
 import org.flowable.engine.ProcessEngineConfiguration;
-import org.flowable.engine.common.api.delegate.event.FlowableEvent;
-import org.flowable.engine.common.runtime.Clock;
 import org.flowable.engine.delegate.BpmnError;
 import org.flowable.engine.delegate.DelegateExecution;
 import org.flowable.engine.form.StartFormData;
+import org.flowable.engine.form.TaskFormData;
 import org.flowable.engine.impl.persistence.deploy.ProcessDefinitionCacheEntry;
-import org.flowable.engine.impl.persistence.entity.SignalEventSubscriptionEntity;
 import org.flowable.engine.impl.repository.DeploymentBuilderImpl;
 import org.flowable.engine.repository.Deployment;
 import org.flowable.engine.repository.ProcessDefinition;
 import org.flowable.engine.runtime.ProcessInstance;
 import org.flowable.engine.task.Attachment;
 import org.flowable.engine.task.Comment;
+import org.flowable.eventsubscription.service.impl.persistence.entity.SignalEventSubscriptionEntity;
 import org.flowable.job.api.Job;
 import org.flowable.task.service.impl.persistence.entity.TaskEntity;
 import org.flowable.variable.api.persistence.entity.VariableInstance;
@@ -138,6 +139,8 @@ public interface Flowable5CompatibilityHandler {
     Object getRenderedStartForm(String processDefinitionId, String formEngineName);
 
     ProcessInstance submitStartFormData(String processDefinitionId, String businessKey, Map<String, String> properties);
+    
+    TaskFormData getTaskFormData(String taskId);
 
     void submitTaskFormData(String taskId, Map<String, String> properties, boolean completeTask);
 

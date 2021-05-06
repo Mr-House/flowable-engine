@@ -23,6 +23,7 @@ import org.flowable.bpmn.model.ExtensionElement;
 import org.flowable.bpmn.model.FlowElement;
 import org.flowable.bpmn.model.FlowElementsContainer;
 import org.flowable.bpmn.model.GraphicInfo;
+import org.flowable.bpmn.model.InclusiveGateway;
 import org.flowable.bpmn.model.SequenceFlow;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -54,7 +55,8 @@ public class SequenceFlowJsonConverter extends BaseBpmnJsonConverter {
     }
 
     @Override
-    public void convertToJson(BaseElement baseElement, ActivityProcessor processor, BpmnModel model, FlowElementsContainer container, ArrayNode shapesArrayNode, double subProcessX, double subProcessY) {
+    public void convertToJson(BpmnJsonConverterContext converterContext, BaseElement baseElement, ActivityProcessor processor, BpmnModel model,
+            FlowElementsContainer container, ArrayNode shapesArrayNode, double subProcessX, double subProcessY) {
 
         SequenceFlow sequenceFlow = (SequenceFlow) baseElement;
         ObjectNode flowNode = BpmnJsonConverterUtil.createChildShape(sequenceFlow.getId(), STENCIL_SEQUENCE_FLOW, 172, 212, 128, 212);
@@ -106,6 +108,9 @@ public class SequenceFlowJsonConverter extends BaseBpmnJsonConverter {
                 if (sourceFlowElement instanceof ExclusiveGateway) {
                     ExclusiveGateway parentExclusiveGateway = (ExclusiveGateway) sourceFlowElement;
                     defaultFlowId = parentExclusiveGateway.getDefaultFlow();
+                } else if (sourceFlowElement instanceof InclusiveGateway) {
+                    InclusiveGateway parentInclusiveGateway = (InclusiveGateway) sourceFlowElement;
+                    defaultFlowId = parentInclusiveGateway.getDefaultFlow();
                 } else if (sourceFlowElement instanceof Activity) {
                     Activity parentActivity = (Activity) sourceFlowElement;
                     defaultFlowId = parentActivity.getDefaultFlow();
@@ -129,12 +134,14 @@ public class SequenceFlowJsonConverter extends BaseBpmnJsonConverter {
     }
 
     @Override
-    protected void convertElementToJson(ObjectNode propertiesNode, BaseElement baseElement) {
+    protected void convertElementToJson(ObjectNode propertiesNode, BaseElement baseElement,
+        BpmnJsonConverterContext converterContext) {
         // nothing to do
     }
 
     @Override
-    protected FlowElement convertJsonToElement(JsonNode elementNode, JsonNode modelNode, Map<String, JsonNode> shapeMap) {
+    protected FlowElement convertJsonToElement(JsonNode elementNode, JsonNode modelNode, Map<String, JsonNode> shapeMap,
+        BpmnJsonConverterContext converterContext) {
         SequenceFlow flow = new SequenceFlow();
 
         String sourceRef = BpmnJsonConverterUtil.lookForSourceRef(elementNode.get(EDITOR_SHAPE_ID).asText(), modelNode.get(EDITOR_CHILD_SHAPES));

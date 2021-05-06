@@ -129,7 +129,7 @@ Example database configuration:
 <property name="jdbcPassword" value="" />
 ----
 
-Our benchmarks have shown that the MyBatis connection pool is not the most efficient or resilient when dealing with a lot of concurrent requests. As such, it is advised to us a +javax.sql.DataSource+ implementation and inject it into the process engine configuration (For example DBCP, C3P0, Hikari, Tomcat Connection Pool, etc.):
+Our benchmarks have shown that the MyBatis connection pool is not the most efficient or resilient when dealing with a lot of concurrent requests. As such, it is advised to use a +javax.sql.DataSource+ implementation and inject it into the process engine configuration (For example HikariCP, Tomcat JDBC Connection Pool, etc.):
 
 [source,xml,linenums]
 ----
@@ -202,9 +202,58 @@ If using Tomcat, the JNDI resource is configured within $CATALINA_BASE/conf/[eng
 
 To configure a JNDI data source, use following properties in the properties file for the Flowable UI:
 
-* datasource.jndi.name: the JNDI name of the data source.
+* spring.datasource.jndi-name=: the JNDI name of the data source.
 * datasource.jndi.resourceRef: Set whether the lookup occurs in a J2EE container, for example, the prefix "java:comp/env/" needs to be added if the JNDI name doesn't already contain it. Default is "true".
 
+
+==== Custom properties
+
+System properties can also be used in the +flowable.cfg.xml+ by using them in the format `${propertyName:defaultValue}`.
+
+[source,xml,linenums]
+----
+<property name="jdbcUrl" value="${jdbc.url:jdbc:h2:mem:flowable;DB_CLOSE_DELAY=1000}" />
+<property name="jdbcDriver" value="${jdbc.driver:org.h2.Driver}" />
+<property name="jdbcUsername" value="${jdbc.username:sa}" />
+<property name="jdbcPassword" value="${jdbc.password:}" />
+----
+
+Using this configuration if the property `jdbc.url` is available then it would be used for the `jdbcUrl` of the `ProcessEngineConfiguration`.
+Otherwise the value after the first `:` would be used.
+
+It is also possible to define locations from where properties can be picked up from the system by using a bean of type +org.springframework.beans.factory.config.PropertyPlaceholderConfigurer+.
+
+Example configuration with custom location for properties
+
+[source,xml,linenums]
+----
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+  <bean class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+    <property name="location" value="file:/opt/conf/flowable.properties" />
+  </bean>
+
+  <bean id="processEngineConfiguration" class="org.flowable.engine.impl.cfg.StandaloneProcessEngineConfiguration">
+
+    <property name="jdbcUrl" value="${jdbc.url:jdbc:h2:mem:flowable;DB_CLOSE_DELAY=1000}" />
+    <property name="jdbcDriver" value="${jdbc.driver:org.h2.Driver}" />
+    <property name="jdbcUsername" value="${jdbc.username:sa}" />
+    <property name="jdbcPassword" value="${jdbc.password:}" />
+
+    <property name="databaseSchemaUpdate" value="true" />
+
+    <property name="asyncExecutorActivate" value="false" />
+
+    <property name="mailServerHost" value="mail.my-corp.com" />
+    <property name="mailServerPort" value="5025" />
+  </bean>
+
+</beans>
+----
+
+With this configuration the properties would be first looked up in the +/opt/conf/flowable.properties+ file.
 
 [[supporteddatabases]]
 
@@ -497,18 +546,13 @@ public class MyEventListener implements FlowableEventListener {
 
   @Override
   public void onEvent(FlowableEvent event) {
-    switch (event.getType()) {
 
-      case JOB_EXECUTION_SUCCESS:
-        System.out.println("A job well done!");
-        break;
-
-      case JOB_EXECUTION_FAILURE:
-        System.out.println("A job has failed...");
-        break;
-
-      default:
-        System.out.println("Event received: " + event.getType());
+    if(event.getType() == FlowableEngineEventType.JOB_EXECUTION_SUCCESS) {
+      System.out.println("A job well done!");
+    } else if (event.getType() == FlowableEngineEventType.JOB_EXECUTION_FAILURE) {
+      System.out.println("A job has failed...");
+    } else {
+      System.out.println("Event received: " + event.getType());
     }
   }
 
@@ -518,11 +562,25 @@ public class MyEventListener implements FlowableEventListener {
     // can be ignored if logging fails...
     return false;
   }
+
+  @Override
+  public boolean isFireOnTransactionLifecycleEvent() {
+    return false;
+  }
+
+  @Override
+  public String getOnTransaction() {
+    return null;
+  }
 }
 ----
 
 
 The +isFailOnException()+ method determines the behavior when the +onEvent(..)+ method throws an exception when an event is dispatched. When +false+ is returned, the exception is ignored. When +true+ is returned, the exception is not ignored and bubbles up, effectively failing the current ongoing command. If the event was part of an API-call (or any other transactional operation, for example, job-execution), the transaction will be rolled back. If the behavior in the event-listener is not business-critical, it's recommended to return +false+.
+
+The +isFireOnTransactionLifecycleEvent()+ method determines whether this event listener fires immediately when the event occurs or on a
+transaction lifecycle event determined by +getOnTransaction()+ method.
+Supported values of the transaction life cycle event are: COMMITTED, ROLLED_BACK, COMMITTING, ROLLINGBACK.
 
 There are a few base implementations provided by Flowable to facilitate common use cases of event-listeners. These can be used as base-class or as an example listener implementation:
 
@@ -770,6 +828,10 @@ Listed below are all event types that can occur in the engine. Each type corresp
 |TASK_ASSIGNED|A task has been assigned to a user. The event contains the task|+org.flowable...FlowableEntityEvent+
 |TASK_CREATED|A task has been created. This is dispatched after the +$$ENTITY_CREATE$$+ event. If the task is part of a process, this event will be fired before the task listeners are executed. |+org.flowable...FlowableEntityEvent+
 |TASK_COMPLETED|A task has been completed. This is dispatched before the +$$ENTITY_DELETE$$+ event. If the task is part of a process, this event will be fired before the process has moved on and will be followed by a +$$ACTIVITY_COMPLETE$$+ event, targeting the activity that represents the completed task.|+org.flowable...FlowableEntityEvent+
+|TASK_OWNER_CHANGED|A task owner has been changed. This is dispatched before the +$$ENTITY_UPDATE$$+ event. |+org.flowable...FlowableEntityEvent+
+|TASK_PRIORITY_CHANGED|A task priority has been changed. This is dispatched before the +$$ENTITY_UPDATE$$+ event. |+org.flowable...FlowableEntityEvent+
+|TASK_DUEDATE_CHANGED|A task due date has been changed. This is dispatched before the +$$ENTITY_UPDATE$$+ event. |+org.flowable...FlowableEntityEvent+
+|TASK_NAME_CHANGED|A task name has been changed. This is dispatched before the +$$ENTITY_UPDATE$$+ event. |+org.flowable...FlowableEntityEvent+
 |PROCESS_CREATED|A process instance has been created. All basic properties have been set, but variables not yet.|+org.flowable...FlowableEntityEvent+
 |PROCESS_STARTED|A process instance has been started. Dispatched when starting a process instance previously created. The event PROCESS_STARTED is dispatched after the associated event ENTITY_INITIALIZED and after the variables have been set.|+org.flowable...FlowableEntityEvent+
 |PROCESS_COMPLETED| A process has been completed, meaning all executions have stopped for the process instance. Dispatched after the last activity +$$ACTIVITY_COMPLETED $$+ event. Process is completed when it reaches state in which process instance does not have any transition to take. |+org.flowable...FlowableEntityEvent+

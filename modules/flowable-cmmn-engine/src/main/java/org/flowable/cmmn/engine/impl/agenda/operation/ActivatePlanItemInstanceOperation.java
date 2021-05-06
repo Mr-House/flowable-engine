@@ -14,52 +14,45 @@ package org.flowable.cmmn.engine.impl.agenda.operation;
 
 import org.apache.commons.lang3.StringUtils;
 import org.flowable.cmmn.api.runtime.PlanItemInstanceState;
-import org.flowable.cmmn.engine.impl.job.AsyncActivatePlanItemInstanceJobHandler;
 import org.flowable.cmmn.engine.impl.persistence.entity.PlanItemInstanceEntity;
 import org.flowable.cmmn.engine.impl.util.CommandContextUtil;
+import org.flowable.cmmn.engine.impl.util.ExpressionUtil;
 import org.flowable.cmmn.model.ManualActivationRule;
 import org.flowable.cmmn.model.PlanItem;
 import org.flowable.cmmn.model.PlanItemControl;
 import org.flowable.cmmn.model.Task;
-import org.flowable.engine.common.impl.interceptor.CommandContext;
-import org.flowable.job.service.JobService;
-import org.flowable.job.service.impl.persistence.entity.JobEntity;
-import org.flowable.variable.api.type.VariableScopeType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.flowable.common.engine.impl.interceptor.CommandContext;
 
 /**
  * @author Joram Barrez
  */
 public class ActivatePlanItemInstanceOperation extends AbstractPlanItemInstanceOperation {
-    
-    private static final Logger LOGGER = LoggerFactory.getLogger(ActivatePlanItemInstanceOperation.class);
-    
-    public ActivatePlanItemInstanceOperation(CommandContext commandContext, PlanItemInstanceEntity planItemInstanceEntity) {
+
+    protected String entryCriterionId;
+
+    public ActivatePlanItemInstanceOperation(CommandContext commandContext, PlanItemInstanceEntity planItemInstanceEntity, String entryCriterionId) {
         super(commandContext, planItemInstanceEntity);
+        this.entryCriterionId = entryCriterionId;
     }
-    
+
     @Override
     public void run() {
         // When it's an asynchronous task, a new activate operation is planned asynchronously.
         if (isAsync() && !PlanItemInstanceState.ASYNC_ACTIVE.equals(planItemInstanceEntity.getState())) {
-            LOGGER.debug("Plan item {} is planned for asynchronous activatation", 
-                    planItemInstanceEntity.getPlanItem().getName() != null ? planItemInstanceEntity.getPlanItem().getName() : planItemInstanceEntity.getPlanItem().getId());
-            createAsyncJob((Task) planItemInstanceEntity.getPlanItem().getPlanItemDefinition());
-            planItemInstanceEntity.setState(PlanItemInstanceState.ASYNC_ACTIVE);
-            return;
-        }
-        
-        // Sentries are not needed to be kept around, as the plan item is being enabled
-        deleteSentryPartInstances();
-        
-        // Evaluate manual activation rule. If one is defined and it evaluates to true, the plan item becomes enabled.
-        // Otherwise, the plan item instance is started and becomes active
-        boolean isManuallyActivated = evaluateManualActivationRule();
-        if (isManuallyActivated) {
-            CommandContextUtil.getAgenda(commandContext).planEnablePlanItemInstanceOperation(planItemInstanceEntity);
+            CommandContextUtil.getAgenda(commandContext).planActivateAsyncPlanItemInstanceOperation(planItemInstanceEntity, entryCriterionId);
         } else {
-            CommandContextUtil.getAgenda(commandContext).planStartPlanItemInstanceOperation(planItemInstanceEntity);
+            if (entryCriterionId != null) {
+                planItemInstanceEntity.setEntryCriterionId(entryCriterionId);
+            }
+
+            // Evaluate manual activation rule. If one is defined and it evaluates to true, the plan item becomes enabled.
+            // Otherwise, the plan item instance is started and becomes active
+            boolean isManuallyActivated = evaluateManualActivationRule();
+            if (isManuallyActivated) {
+                CommandContextUtil.getAgenda(commandContext).planEnablePlanItemInstanceOperation(planItemInstanceEntity, entryCriterionId);
+            } else {
+                CommandContextUtil.getAgenda(commandContext).planStartPlanItemInstanceOperation(planItemInstanceEntity, entryCriterionId);
+            }
         }
     }
 
@@ -69,15 +62,15 @@ public class ActivatePlanItemInstanceOperation extends AbstractPlanItemInstanceO
             ManualActivationRule manualActivationRule = planItemControl.getManualActivationRule();
 
             if (StringUtils.isNotEmpty(manualActivationRule.getCondition())) {
-                return evaluateBooleanExpression(commandContext, planItemInstanceEntity, manualActivationRule.getCondition());
+                return ExpressionUtil.evaluateBooleanExpression(commandContext, planItemInstanceEntity, manualActivationRule.getCondition());
             } else {
                 return true; // Having a manual activation rule without condition, defaults to true.
             }
         }
         return false;
     }
-    
-    protected boolean isAsync() {
+
+    public boolean isAsync() {
         if (planItemInstanceEntity.getPlanItem().getPlanItemDefinition() instanceof Task) {
             Task task = (Task) planItemInstanceEntity.getPlanItem().getPlanItemDefinition();
             if (task.isAsync()) {
@@ -86,35 +79,18 @@ public class ActivatePlanItemInstanceOperation extends AbstractPlanItemInstanceO
         }
         return false;
     }
-    
-    protected void createAsyncJob(Task task) {
-        JobService jobService = CommandContextUtil.getCmmnEngineConfiguration(commandContext).getJobServiceConfiguration().getJobService();
-        JobEntity job = jobService.createJob();
-        job.setScopeId(planItemInstanceEntity.getCaseInstanceId());
-        job.setSubScopeId(planItemInstanceEntity.getId());
-        job.setScopeDefinitionId(planItemInstanceEntity.getCaseDefinitionId());
-        job.setScopeType(VariableScopeType.CMMN);
-        job.setTenantId(planItemInstanceEntity.getTenantId());
-        job.setJobHandlerType(AsyncActivatePlanItemInstanceJobHandler.TYPE);
-        
-        jobService.setAsyncJobProperties(job, task.isExclusive());
-        jobService.scheduleAsyncJob(job);
-    }
-    
+
     @Override
     public String toString() {
         PlanItem planItem = planItemInstanceEntity.getPlanItem();
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.append("[Activate PlanItem] ");
-        if (planItem.getName() != null) {
-            stringBuilder.append(planItem.getName());
-            stringBuilder.append(" (");
-            stringBuilder.append(planItem.getId());
-            stringBuilder.append(")");
-        } else {
-            stringBuilder.append(planItem.getId());
+        stringBuilder.append(planItem);
+
+        if (entryCriterionId != null) {
+            stringBuilder.append(" via entry criterion ").append(entryCriterionId);
         }
+
         return stringBuilder.toString();
     }
-
 }

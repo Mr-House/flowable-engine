@@ -12,16 +12,15 @@
  */
 package org.flowable.engine.impl.form;
 
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 
-import org.flowable.engine.common.api.FlowableException;
-import org.flowable.engine.common.api.FlowableObjectNotFoundException;
+import org.flowable.common.engine.api.FlowableObjectNotFoundException;
+import org.flowable.common.engine.impl.scripting.ScriptingEngines;
 import org.flowable.engine.form.FormData;
 import org.flowable.engine.form.StartFormData;
 import org.flowable.engine.form.TaskFormData;
 import org.flowable.engine.impl.persistence.entity.ExecutionEntity;
 import org.flowable.engine.impl.persistence.entity.ResourceEntity;
-import org.flowable.engine.impl.scripting.ScriptingEngines;
 import org.flowable.engine.impl.util.CommandContextUtil;
 import org.flowable.task.service.impl.persistence.entity.TaskEntity;
 
@@ -71,14 +70,6 @@ public class JuelFormEngine implements FormEngine {
             throw new FlowableObjectNotFoundException("Form with formKey '" + formKey + "' does not exist", String.class);
         }
 
-        byte[] resourceBytes = resourceStream.getBytes();
-        String encoding = "UTF-8";
-        String formTemplateString = "";
-        try {
-            formTemplateString = new String(resourceBytes, encoding);
-        } catch (UnsupportedEncodingException e) {
-            throw new FlowableException("Unsupported encoding of :" + encoding, e);
-        }
-        return formTemplateString;
+        return new String(resourceStream.getBytes(), StandardCharsets.UTF_8);
     }
 }
